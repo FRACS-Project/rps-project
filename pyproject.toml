@@ -1,0 +1,26 @@
+[project]
+name = "rps-project"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "bcrypt==4.3.0",
+    "fastapi[standard]>=0.128.0",
+    "httpx>=0.28.1",
+    "passlib>=1.7.4",
+    "pillow>=12.1.1",
+    "pytest>=9.0.2",
+    "pytest-asyncio>=1.3.0",
+    "pytest-mock>=3.15.1",
+    "python-jose>=3.5.0",
+    "python-multipart>=0.0.21",
+    "sqlmodel>=0.0.31",
+    "psycopg[binary]>=3.2.0",
+    "python-magic>=0.4.27",
+    "python-magic-bin>=0.4.14; sys_platform == 'win32'",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

@@ -1,0 +1,27 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+.env
+
+# Vscode
+.vscode
+
+# Front
+flutter_application_1
+front
+
+# Divers
+ia_debat.txt
+test.json
+secret.py
+DOCKER_SETUP_GUIDE.md
+command.md
+delete recipe.pgsql
