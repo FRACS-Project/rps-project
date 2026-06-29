@@ -18,15 +18,19 @@
 #
 ##############################################################################################################
 
-import uuid
+import uuid, os, base64
+from pathlib import Path
 
 import magic
 import base64
 
 from sqlmodel import Session
 
+from ...core.path import UPLOADS_DIR
+
 from . import (
     Image,
+    ImageStatus,
     DuplicateImageError,
     ImageNotFoundError,
     WrongImageType
@@ -188,3 +192,22 @@ class ImageService:
                 raise WrongImageType()
             if mime not in allowed:
                 raise WrongImageType()
+
+    def sync_images_on_create(self, recipe_id: uuid.UUID, images: list[ImageCreate], user_id: uuid.UUID) -> None:
+        """Add the images for a new recipe"""
+        
+        for image in images:
+            image_created = self.crud.pre_create_image(
+                ImageRecipeCreate(
+                    status=ImageStatus.PENDING,
+                    owner_id=user_id,
+                    recipe_id=recipe_id
+                )
+            )
+            self._store_image(image.data_base64, image_created.id)
+            self.update_image(image_created.id, ImageUpdate(status=ImageStatus.ACTIVE))
+
+    def _store_image(self, image_base64: str, image_id: uuid.UUID):
+        raw = base64.b64decode(image_base64, validate=True)
+        temp = os.path.abspath(os.path.join(UPLOADS_DIR, str(image_id)))
+        Path(temp).write_bytes(raw)

@@ -18,6 +18,7 @@ from .bookmark import (
 
 from .image import (
     Image,
+    ImageBase,
     DuplicateImageError,
     ImageNotFoundError,
 )
@@ -33,6 +34,7 @@ __all__ = [
     "TagNotFoundError",
     "Bookmark",
     "Image",
+    "ImageBase",
     "DuplicateImageError",
     "ImageNotFoundError",
 ]
