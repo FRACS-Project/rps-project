@@ -23,5 +23,5 @@ ia_debat.txt
 test.json
 secret.py
 DOCKER_SETUP_GUIDE.md
-command.md
+cheat_sheet.md
 delete recipe.pgsql
