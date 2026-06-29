@@ -24,4 +24,5 @@ test.json
 secret.py
 DOCKER_SETUP_GUIDE.md
 cheat_sheet.md
+git_sheet.md
 delete recipe.pgsql
