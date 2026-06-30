@@ -23,6 +23,7 @@ class ImagePublic(ImageBase):
         id (UUID): The image's unique identifier.
     """
     id: uuid.UUID
+    data_base64: str | None = None
 
 
 class ImageCreate(ImageBase):

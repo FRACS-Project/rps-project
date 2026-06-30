@@ -37,6 +37,7 @@ from . import (
 )
 
 from .schemas import (
+    ImagePublic,
     ImageCreate,
     ImageUpdate,
     ImageRecipeCreate
@@ -117,23 +118,33 @@ class ImageService:
 
         return image
 
-    def get_image_by_recipe(self, recipe_id: uuid.UUID) -> Image:
-        """Retrieve a specific Image by name.
+    def get_images_by_recipe(self, recipe_id: uuid.UUID) -> list[ImagePublic]:
+        """Retrieve the list of images from a recipe.
 
         Args:
             name (str): The name of the image.
 
         Returns:
-            Image: The found image instance.
+            List[Image]: The found image instance.
 
         Raises:
             ImageNotFoundError: If the Image is not found.
         """
-        image = self.crud.get_image_by_recipe(recipe_id)
-        if not image:
-            raise ImageNotFoundError()
-
-        return image
+        images = self.crud.get_images_by_recipe(recipe_id)
+        image_pub = []
+        
+        for image in images:
+            if not image:
+                raise ImageNotFoundError()
+            image_bytes = Path(UPLOADS_DIR/str(image.id)).read_bytes()
+            image_pub.append(
+                ImagePublic(
+                    id=image.id,
+                    data_base64=base64.b64encode(image_bytes).decode("utf-8")
+                )
+            )
+        
+        return image_pub
 
     def update_image(self, image_id: uuid.UUID, image: ImageUpdate) -> Image:
         """Update an existing Image's information.

@@ -66,12 +66,11 @@ def create_new_image(
 
 @router.get("/me", response_model=list[ImagePublic])
 def get_my_images(
-        recipe_id: uuid.UUID,
         offset: OffsetQuery = DEFAULT_OFFSET,
         limit: LimitQuery = DEFAULT_LIMIT,
         session: Session = Depends(get_session),
         # current_user: UserPublic = Depends(get_current_active_user)
-        
+
 ):
     """Retrieve images created by the current user.
 
@@ -153,9 +152,27 @@ def delete_image(
     return service.delete_image_by_user(image_id, current_user.id)
 
 
+@router.get("/recipe/{recipe_id}", response_model=list[ImagePublic])
+def get_images_by_recipe(
+        recipe_id: uuid.UUID,
+        session: Session = Depends(get_session)
+):
+    """Retrieve all the images of a recipe by it's id (recipe).
+
+    Args:
+        recipe_id (UUID): The unique identifier of the recipe.
+        session (Session): The database session dependency.
+
+    Returns:
+        ImagePublic: The image with related data.
+    """
+    service = ImageService(session)
+    return service.get_images_by_recipe(recipe_id)
+
+
 @router.post("/", response_model=ImagePublic, dependencies=[Depends(get_current_admin_user)])
 def create_image(image: ImageCreate,
-                  session: Session = Depends(get_session)):
+                 session: Session = Depends(get_session)):
     """Create a new image.
 
     Args:

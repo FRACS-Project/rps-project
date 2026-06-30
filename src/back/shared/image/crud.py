@@ -105,7 +105,7 @@ class ImageCrud:
         self.db.commit()
         return {"ok": True}
 
-    def get_image_by_recipe(self, id: uuid.UUID) -> Image | None:
+    def get_images_by_recipe(self, id: uuid.UUID, offset: int = 0, limit: int = 100) -> list[Image]:
         """Retrieve a image by its name.
 
         Args:
@@ -115,4 +115,4 @@ class ImageCrud:
             Image | None: The found image instance or None if not found.
         """
         query = select(Image).where(Image.recipe_id == id)
-        return self.db.exec(query).first()
+        return self.db.exec(query.offset(offset).limit(limit)).all()

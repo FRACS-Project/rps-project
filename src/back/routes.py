@@ -16,7 +16,7 @@ from .recipe.components.instruction.routers import router as instruction_router
 from .recipe.components.recipe_ingredient.routers import router as rec_ing_router
 from .shared.tag.routers import router as tag_router
 from .shared.bookmark.routers import router as bookmark_router
-# from .shared.image.routers import router as image_router
+from .shared.image.routers import router as image_router
 
 all_routers = [
     user_router,
@@ -28,5 +28,5 @@ all_routers = [
     tag_router,
     instruction_router,
     bookmark_router,
-    # image_router,
+    image_router,
 ]
