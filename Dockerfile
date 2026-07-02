@@ -20,9 +20,9 @@ COPY --from=builder --chown=root:root /app/.venv /app/.venv
 
 WORKDIR /app
 
-COPY src ./src
+COPY apps/api ./apps/api
 
-COPY docker/entrypoint.sh /entrypoint.sh
+COPY docker/scripts/entrypoint.sh /entrypoint.sh
 
 RUN useradd -m -u 1000 appuser \
     && mkdir -p /app/storage/uploads \
@@ -35,4 +35,4 @@ ENV PYTHONPATH=/app/.venv/lib/python3.12/site-packages
 
 ENTRYPOINT ["/entrypoint.sh"]
 
-CMD ["python", "-m", "uvicorn", "src.back.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+CMD ["python", "-m", "uvicorn", "apps.api.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
