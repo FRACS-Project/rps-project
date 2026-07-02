@@ -26,25 +26,13 @@ class ImageStatus(str, Enum):
 
 
 class ImageBase(SQLModel):
-    """Base model for image information.
 
-    Attributes:
-        name (str): The image name.
-        uri (str): The local path to the image.
-    """
     status: ImageStatus | None = Field(default=ImageStatus.PENDING)
+    is_primary: bool | None = Field(default=False)
 
 
-class Image(SQLModel, table=True):
-    """Complete image model for database storage.
+class Image(ImageBase, table=True):
 
-    Extends ImageBase to include a unique identifier.
-
-    Attributes:
-        id (UUID): Unique identifier for the image.
-        name (str): The image name.
-        uri (str): The local path to the image.
-    """
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
 
     date_created: datetime = Field(

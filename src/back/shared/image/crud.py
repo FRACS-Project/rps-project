@@ -40,7 +40,7 @@ class ImageCrud:
         return db_image
     
     def pre_create_image(self, image: ImageCreate) -> Image:
-        """Create a new Image in the database.
+        """Create a new Image in the database without saving the database in case there is a need to rollback.
 
         Args:
             image (ImageCreate): The image data to create.
@@ -91,6 +91,12 @@ class ImageCrud:
         self.db.commit()
         self.db.refresh(db_image)
         return db_image
+    
+    def pre_update_image(self, db_image: Image, image: dict) -> Image:
+        db_image.sqlmodel_update(image)
+        self.db.add(db_image)
+        self.db.flush()
+        return db_image
 
     def delete_image(self, db_image: Image) -> dict:
         """Delete a Image from the database.
@@ -104,9 +110,22 @@ class ImageCrud:
         self.db.delete(db_image)
         self.db.commit()
         return {"ok": True}
+    
+    def pre_delete_image(self, db_image: Image) -> dict:
+        """Delete a Image from the database.
+
+        Args:
+            db_image (Image): The Image instance to delete.
+
+        Returns:
+            dict: Confirmation message.
+        """
+        self.db.delete(db_image)
+        return {"ok": True}
+
 
     def get_images_by_recipe(self, id: uuid.UUID, offset: int = 0, limit: int = 100) -> list[Image]:
-        """Retrieve a image by its name.
+        """Retrieve the list of images for a recipe.
 
         Args:
             name (str): The name of the image to search for.
@@ -114,5 +133,5 @@ class ImageCrud:
         Returns:
             Image | None: The found image instance or None if not found.
         """
-        query = select(Image).where(Image.recipe_id == id)
+        query = select(Image).where(Image.recipe_id == id).order_by(Image.date_created.asc())
         return self.db.exec(query.offset(offset).limit(limit)).all()
