@@ -29,12 +29,12 @@ app = FastAPI(lifespan=lifespan)
 for router in all_routers:
     app.include_router(router)
 
-# Monter le dossier frontend en /static
-app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="front")
+# # Monter le dossier frontend en /static
+# app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="front")
 
 
-# Servir index.html à la racine
-@app.get("/")
-def root():
-    index_path = FRONTEND_DIR / "index.html"
-    return FileResponse(index_path)
+# # Servir index.html à la racine
+# @app.get("/")
+# def root():
+#     index_path = FRONTEND_DIR / "index.html"
+#     return FileResponse(index_path)

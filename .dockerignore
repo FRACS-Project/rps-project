@@ -1,35 +1,35 @@
-# Dépendances (réinstallées dans l'image)
-node_modules/
-vendor/
-__pycache__/
-*.pyc
-
-# Git et IDE
-.git/
+# Git / IDE
+.git
 .gitignore
-.vscode/
-.idea/
-*.swp
+.vscode
+.idea
 
-# Fichiers de build locaux
-dist/
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# Build / logs
 build/
+dist/
 *.log
 
-# Secrets et config locale (CRITIQUE : risque d'exfiltration)
+# Local env / secrets
 .env
-.env.local
+.env.*
 *.pem
 *.key
 secrets/
-.npmrc
-.pypirc
-kubeconfig
 
-# Divers
-DOCKER_SETUP_GUIDE.md
+# Flutter app (not needed for backend image)
+apps/mobile/
 
-# Docker (optionnel — à exclure si remote build)
-# Dockerfile*
-# docker-compose*.yml
-# .dockerignore
+# Docs / tests not needed in image
+docs/
+tests/
+
+# OS junk
+.DS_Store
+Thumbs.db

@@ -10,19 +10,13 @@ wheels/
 .venv
 
 .env
+secret.py
 
 # Vscode
 .vscode
 
 # Front
-flutter_application_1
-front
+mobile
 
-# Divers
-ia_debat.txt
-test.json
-secret.py
-DOCKER_SETUP_GUIDE.md
-cheat_sheet.md
-git_sheet.md
-delete recipe.pgsql
+# Docs
+docs
