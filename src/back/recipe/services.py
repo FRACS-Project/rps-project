@@ -18,7 +18,9 @@
 #
 ##############################################################################################################
 
-import uuid, os, base64
+import uuid
+import os
+import base64
 from pathlib import Path
 from sqlmodel import Session
 
@@ -64,8 +66,6 @@ from ..shared import Tag, TagNotFoundError
 from ..shared.tag.schemas import TagCreate, TagRef
 from ..shared.tag.services import TagService
 
-from ..shared import Image
-from ..shared.image.schemas import ImageCreate, ImageRecipeCreate
 from ..shared.image.services import ImageService
 
 
@@ -250,13 +250,20 @@ class RecipeService:
         self._sync_instructions_on_create(created_recipe, recipe.instructions)
 
         # Add Image to the recipe
-        self._sync_images_on_create(created_recipe, recipe.images, user_id)
+        if recipe.images:
+            self.image_service.sync_recipe_images_on_create(
+                created_recipe.id, recipe.images, user_id)
 
         self.crud.save()
 
         return self.crud.refresh_recipe(created_recipe)
 
-    def update_recipe_by_user(self, recipe_id: uuid.UUID, recipe: PatchRecipe, user_id: uuid.UUID) -> Recipe:
+    def update_recipe_by_user(
+        self,
+        recipe_id: uuid.UUID,
+        recipe: PatchRecipe,
+        user_id: uuid.UUID
+    ) -> Recipe:
         """Update an existing recipe's information.
 
         Args:
@@ -281,6 +288,7 @@ class RecipeService:
         self._validate_ingredients(recipe.ingredients)
         self._validate_tags(recipe.tags)
         self._validate_instructions(recipe.instructions)
+        self._validate_images(recipe.images)
 
         # Update recipe
         if (db_recipe.name != recipe.name) and self.crud.read_recipe_by_name(recipe.name):
@@ -294,7 +302,10 @@ class RecipeService:
 
         # Update recipe ingredients
         self._sync_ingredients_on_update(
-            db_recipe, recipe.ingredients, recipe_id)
+            db_recipe,
+            recipe.ingredients,
+            recipe_id
+        )
 
         # Update tags
         self._sync_tags_on_update(db_recipe, recipe.tags)
@@ -302,6 +313,8 @@ class RecipeService:
         # Update instructions
         self._sync_instructions_on_update(
             db_recipe, recipe.instructions, recipe_id)
+
+        self.image_service.sync_recipe_images_on_update(recipe_id)
 
         self.crud.save()
 
@@ -393,25 +406,13 @@ class RecipeService:
                 )
             )
 
-    def _sync_images_on_create(self, recipe: Recipe, images: list[ImageCreate], user_id: uuid.UUID) -> None:
-        """Add the images for a new recipe"""
-        BASE_DIR = os.path.abspath("/app")
-        IMAGE_DIR = os.path.abspath(os.path.join(BASE_DIR,"storage","uploads"))
-        for image in images:
-            image_created = self.image_service.create_recipe_image_by_user(
-                ImageRecipeCreate(
-                    owner_id=user_id,
-                    recipe_id=recipe.id
-                )
-            )
-            raw = base64.b64decode(image.data_base64, validate=True)
-            temp = os.path.abspath(os.path.join(IMAGE_DIR, str(image_created.id)))
-            Path(temp).write_bytes(raw)
-
-
-
     # ── Private: Update ─────────────────────────────────────────────────────────────────────────────────────────────────
-    def _sync_ingredients_on_update(self, db_recipe: Recipe, ingredients: list[PatchRecipeIngredient], recipe_id: uuid.UUID) -> None:
+    def _sync_ingredients_on_update(
+        self,
+        db_recipe: Recipe,
+        ingredients: list[PatchRecipeIngredient],
+        recipe_id: uuid.UUID
+    ) -> None:
         """Update ingredients for existing recipe (delete removed, update/create others)."""
         new_recipe_ingredient_ids = {
             ing.recipe_ingredient_id
@@ -490,7 +491,12 @@ class RecipeService:
         for tag_id in tag_to_add:
             db_recipe.tags.append(self.tag_service.get_tag(tag_id))
 
-    def _sync_instructions_on_update(self, db_recipe: Recipe, instructions: list[PatchInstruction], recipe_id: uuid.UUID) -> None:
+    def _sync_instructions_on_update(
+        self,
+        db_recipe: Recipe,
+        instructions: list[PatchInstruction],
+        recipe_id: uuid.UUID
+    ) -> None:
         """Update instructions for existing recipe (delete removed, update/create others)."""
         new_instruction_ids = {
             ins.id
@@ -508,7 +514,10 @@ class RecipeService:
             self.instruction_service.pre_delete_instruction(id)
 
         db_recipe.instructions = [
-            ins for ins in db_recipe.instructions if ins.id not in instruction_to_delete]
+            ins
+            for ins in db_recipe.instructions
+            if ins.id not in instruction_to_delete
+        ]
 
         for instruction in instructions:
             if instruction.new:
@@ -516,7 +525,7 @@ class RecipeService:
                     InstructionCreate(
                         title=instruction.title,
                         details=instruction.details,
-                        recipe_id=db_recipe.id
+                        recipe_id=recipe_id
                     )
                 )
             elif instruction.id:
@@ -525,6 +534,6 @@ class RecipeService:
                     InstructionUpdate(
                         title=instruction.title,
                         details=instruction.details,
-                        recipe_id=db_recipe.id
+                        recipe_id=recipe_id
                     )
                 )

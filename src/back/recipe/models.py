@@ -56,6 +56,7 @@ class Recipe(RecipeBase, table=True):
         ingredients (list[RecipeIngredient]): The ingredients used in this recipe.
         instructions (list[Instruction]): The instructions for this recipe.
         tags (list[Tag]): The tags associated with this recipe.
+        images (list[Image]): The images associated with this recipe.
     """
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     date_created: datetime = Field(default_factory=datetime.now, nullable=False)

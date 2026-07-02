@@ -7,47 +7,28 @@
 #
 ##############################################################################################################
 
-import re
 import uuid
 
-from pydantic import BaseModel
+from . import ImageBase
+from .models import ImageStatus
 
 
-class ImagePublic(BaseModel):
-    """Schema for publicly viewable image data.
-
-    Attributes:
-        id (UUID): The image's unique identifier.
-        name (str): The image name.
-        uri (str): The local path to the image.
-        data_base64 (str): The image in base64 encode for json payload
-    """
+class ImagePublic(ImageBase):
     id: uuid.UUID
+    data_base64: str | None = None
 
 
-class ImageCreate(BaseModel):
-    """Schema for creating a new Image.
-
-    Attributes:
-        name (str): The image name.
-        uri (str): The local path to the image.
-    """
-    id: uuid.UUID | None = None
-    name: str
-    data_base64: str
-
-
-class ImageUpdate(BaseModel):
-    """Schema for updating image data.
-
-    All fields are optional to allow partial updates.
-
-    Attributes:
-        name (str, optional): The updated imagename.
-        uri (str): The local path to the image.
-    """
-    data_based64: str | None = None
-
-class ImageRecipeCreate(BaseModel):
+class ImageCreate(ImageBase):
     owner_id: uuid.UUID
     recipe_id: uuid.UUID
+
+
+class ImageUpdate(ImageBase):
+    status: ImageStatus | None = None
+    is_primary: bool | None = None
+
+
+class ImagePayload(ImageBase):
+    id: uuid.UUID | None = None
+    data_base64: str
+    new: bool | None = False

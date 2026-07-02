@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 from enum import Enum
 
 from sqlmodel import SQLModel, Field, Relationship
-from datetime import datetime
+from datetime import datetime, timedelta
 
 
 if TYPE_CHECKING:
@@ -22,36 +22,23 @@ if TYPE_CHECKING:
 
 class ImageStatus(str, Enum):
     PENDING = "pending"
-    FINISHING = "finishing"
     ACTIVE = "active"
 
 
-# class ImageBase(SQLModel):
-#     """Base model for image information.
+class ImageBase(SQLModel):
 
-#     Attributes:
-#         name (str): The image name.
-#         uri (str): The local path to the image.
-#     """
-#     name: str
-#     uri: str
+    status: ImageStatus | None = Field(default=ImageStatus.PENDING)
+    is_primary: bool | None = Field(default=False)
 
 
-class Image(SQLModel, table=True):
-    """Complete image model for database storage.
+class Image(ImageBase, table=True):
 
-    Extends ImageBase to include a unique identifier.
-
-    Attributes:
-        id (UUID): Unique identifier for the image.
-        name (str): The image name.
-        uri (str): The local path to the image.
-    """
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
 
     date_created: datetime = Field(
         default_factory=datetime.now, nullable=False
     )
+    pending_date: datetime = Field(default_factory=lambda: datetime.now() + timedelta(hours=1), nullable=True)
 
     owner: "User" = Relationship(back_populates="images")
     owner_id: uuid.UUID = Field(foreign_key="user.id", nullable=False, ondelete="CASCADE")

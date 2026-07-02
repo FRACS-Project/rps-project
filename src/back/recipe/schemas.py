@@ -111,7 +111,7 @@ class NewRecipe(RecipeSchemaBase):
     tags: list["TagRef"] = Field(min_length=1)
     ingredients: list["NewRecipeIngredient"] = Field(min_length=1)
     instructions: list["NewInstructionCreate"] = Field(min_length=1)
-    images: list["ImageCreate"] | None = None
+    images: list["ImagePayload"] | None = None
 
 class PatchRecipe(RecipeSchemaBase):
     """Schema for creating a recipe with related entities.
@@ -128,12 +128,13 @@ class PatchRecipe(RecipeSchemaBase):
     tags: list["TagRef"] | None = None
     ingredients: list["PatchRecipeIngredient"] | None = None
     instructions: list["PatchInstruction"] | None = None
+    images: list["ImagePayload"] | None = None
 
 
 from .components.recipe_ingredient.schemas import RecipeIngredientPublicWithAll, NewRecipeIngredient, PatchRecipeIngredient
 from .components.instruction.schemas import InstructionPublic, NewInstructionCreate, PatchInstruction
 from ..shared.tag.schemas import TagRef, TagPublic
-from ..shared.image.schemas import ImageCreate, ImagePublic
+from ..shared.image.schemas import ImagePayload, ImagePublic, ImageUpdate
 RecipeUpdate.model_rebuild()
 RecipePublicWithAll.model_rebuild()
 NewRecipe.model_rebuild()

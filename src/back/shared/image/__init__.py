@@ -1,5 +1,5 @@
 """Authentication module exports."""
-from .models import Image
+from .models import Image, ImageBase, ImageStatus
 from .exceptions import (
     DuplicateImageError,
     ImageNotFoundError,
@@ -9,6 +9,8 @@ from .exceptions import (
 
 __all__ = [
     "Image",
+    "ImageBase",
+    "ImageStatus",
     "DuplicateImageError",
     "ImageNotFoundError",
     "WrongImageType",
