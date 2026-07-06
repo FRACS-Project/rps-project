@@ -149,6 +149,30 @@ class ImageService:
 
         return image_pub
 
+    def get_primary_image_by_recipe(self, recipe_id: uuid.UUID) -> ImagePublic:
+        """Retrieve the list of images from a recipe.
+
+        Args:
+            name (str): The name of the image.
+
+        Returns:
+            List[Image]: The found image instance.
+
+        Raises:
+            ImageNotFoundError: If the Image is not found.
+        """
+        images = self.crud.get_images_by_recipe(recipe_id)
+
+        for image in images:
+            if not image:
+                raise ImageNotFoundError()
+            if image.is_primary:
+                image_bytes = Path(UPLOADS_DIR/str(image.id)).read_bytes()
+                return ImagePublic(
+                    id=image.id,
+                    data_base64=base64.b64encode(image_bytes).decode("utf-8")
+                )
+
     def update_image(self, image_id: uuid.UUID, image: ImageUpdate) -> Image:
         """Update an existing Image's information.
 
@@ -169,14 +193,14 @@ class ImageService:
         image_data = image.model_dump(exclude_unset=True)
 
         return self.crud.update_image(db_image, image_data)
-    
+
     def pre_update_image(self, image_id: uuid.UUID, image: ImageUpdate) -> Image:
         db_image = self.crud.read_image(image_id)
         if not image:
             raise ImageNotFoundError()
-        
+
         image_data = image.model_dump(exclude_unset=True)
-        
+
         return self.crud.pre_update_image(db_image, image_data)
 
     def delete_image(self, image_id: uuid.UUID) -> dict:
@@ -308,7 +332,7 @@ class ImageService:
                     image_created.id,
                     ImageUpdate(status=ImageStatus.ACTIVE)
                 )
-        
+
         recipe_images = self.get_images_by_recipe(recipe_id)
         for i, image in enumerate(recipe_images):
             if i == 0:
@@ -325,7 +349,6 @@ class ImageService:
                         is_primary=False
                     )
                 )
-
 
     def _store_image(self, image_base64: str, image_id: uuid.UUID):
         raw = base64.b64decode(image_base64, validate=True)

@@ -25,6 +25,8 @@ from .schemas import (
     PatchRecipe
 )
 
+from ..shared.image.schemas import ImagePublic
+
 from ..utils import (
     LimitQuery,
     OffsetQuery,
@@ -203,6 +205,26 @@ def get_recipe(
 
     service = RecipeService(session)
     return service.get_recipe(recipe_id)
+
+
+@router.get("/{recipe_id}/images", response_model=list[ImagePublic])
+def get_recipe_images(
+        recipe_id: uuid.UUID,
+        session: Session = Depends(get_session)):
+
+    service = RecipeService(session)
+
+    return service.get_recipe_images(recipe_id)
+
+
+@router.get("/{recipe_id}/images/primary", response_model=ImagePublic)
+def get_recipe_image_primary(
+        recipe_id: uuid.UUID,
+        session: Session = Depends(get_session)):
+
+    service = RecipeService(session)
+
+    return service.get_recipe_image_primary(recipe_id)
 
 
 @router.patch("/{recipe_id}", response_model=RecipePublicWithAll, dependencies=[Depends(get_current_admin_user)])

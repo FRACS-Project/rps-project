@@ -19,8 +19,6 @@
 ##############################################################################################################
 
 import uuid
-import os
-import base64
 from pathlib import Path
 from sqlmodel import Session
 
@@ -45,8 +43,6 @@ from .schemas import (
 
 from .crud import RecipeCrud
 
-from .components import RecipeIngredient, Instruction
-
 from .components.recipe_ingredient.schemas import (
     RecipeIngredientCreate,
     RecipeIngredientUpdate,
@@ -58,14 +54,13 @@ from .components.recipe_ingredient.services import RecipeIngredientService
 from .components.instruction.schemas import InstructionCreate, InstructionUpdate, NewInstructionCreate, PatchInstruction
 from .components.instruction.services import InstructionService
 
-from ..shared import Ingredient
 from ..shared.ingredient.schemas import IngredientCreate
 from ..shared.ingredient.services import IngredientService
 
-from ..shared import Tag, TagNotFoundError
 from ..shared.tag.schemas import TagCreate, TagRef
 from ..shared.tag.services import TagService
 
+from ..shared.image.schemas import ImagePublic
 from ..shared.image.services import ImageService
 
 
@@ -109,6 +104,14 @@ class RecipeService:
             raise RecipeNotFoundError()
 
         return recipe
+
+    def get_recipe_images(self, recipe_id: uuid.UUID) -> list[ImagePublic]:
+
+        return self.image_service.get_images_by_recipe(recipe_id)
+
+    def get_recipe_image_primary(self, recipe_id: uuid.UUID) -> ImagePublic:
+
+        return self.image_service.get_primary_image_by_recipe(recipe_id)
 
     def get_recipes(self, offset: int = 0, limit: int = 0) -> list[Recipe]:
         """Retrieve a paginated list of recipes.
