@@ -317,7 +317,7 @@ class RecipeService:
         self._sync_instructions_on_update(
             db_recipe, recipe.instructions, recipe_id)
 
-        self.image_service.sync_recipe_images_on_update(recipe_id)
+        self.image_service.sync_recipe_images_on_update(db_recipe, recipe.images, recipe_id)
 
         self.crud.save()
 

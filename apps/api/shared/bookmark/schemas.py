@@ -21,8 +21,7 @@ class BookmarkPublic(Bookmark):
         cooking_time (int): Cooking time in minutes.
         description (str): Recipe description.
     """
-    recipe_id: uuid.UUID
-    user_id: uuid.UUID
+    pass
 
 
 class BookmarkCreate(Bookmark):
