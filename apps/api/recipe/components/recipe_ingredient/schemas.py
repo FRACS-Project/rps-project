@@ -25,7 +25,7 @@ class RecipeIngredientPublic(BaseModel):
         unit (Optional[Unit]): The unit of measurement for the quantity.
     """
     id: uuid.UUID
-    quantity: int
+    quantity: float
     unit: Unit | None = None
 
 
