@@ -1,22 +1,8 @@
-##############################################################################################################
-#
-# User Service Layer - Business Logic and Validation
-#
-# This module contains the service layer for user management and authentication.
-# Services handle all business logic, validation, and coordinate between routes and CRUD.
-#
-# Architecture:
-#   - Receives requests from routes (HTTP layer)
-#   - Validates business rules (duplicates, passwords, account status)
-#   - Coordinates CRUD operations (database layer)
-#   - Handles error conditions with domain-specific exceptions
-#
-# Key Responsibilities:
-#   - User creation with duplicate checking and password hashing
-#   - Authentication with credential validation and token generation
-#   - Business rule enforcement (password strength, account status)
-#
-##############################################################################################################
+"""User service: account management and login.
+
+Checks email/username uniqueness, hashes passwords, and issues JWT access
+tokens on login.
+"""
 
 import uuid
 from sqlmodel import Session
@@ -37,33 +23,29 @@ from ..core import security
 
 
 class UserService:
-    """Service layer for user management and authentication.
-
-    Handles all business logic related to users including creation, authentication,
-    validation, and authorization. Coordinates between HTTP routes and database CRUD.
-    """
+    """Business logic for user accounts and authentication."""
     # ── Constructor ─────────────────────────────────────────────────────────────────────────────────────────────────
     def __init__(self, db: Session):
-        """Initialize UserService with database session.
+        """Initialize with a database session.
 
         Args:
-            db (Session): Database session for executing queries via CRUD layer.
+            db: Database session shared with the CRUD layer.
         """
         self.db = db
         self.crud = UserCrud(self.db)
 
     # ── Public: Queries ─────────────────────────────────────────────────────────────────────────────────────────────────
     def get_user(self, user_id: uuid.UUID) -> User:
-        """Retrieve a specific user by their ID.
+        """Return a user by ID.
 
         Args:
-            user_id (uuid.UUID): The unique identifier of the user.
+            user_id: ID of the user.
 
         Returns:
-            User: The found user instance.
+            The user.
 
         Raises:
-            UserNotFoundError: If the user was not found.
+            UserNotFoundError: If no user has this ID.
         """
         
         user = self.crud.read_user(user_id)
@@ -73,33 +55,31 @@ class UserService:
         return user
     
     def get_users(self, offset: int = 0, limit: int = 0) -> list[User]:
-        """Retrieve a paginated list of all users.
-
-        Returns a list of users data, supporting pagination through offset and limit parameters.
+        """Return a page of users.
 
         Args:
-            offset (int): Number of users to skip (for pagination).
-            limit (int): Maximum number of users to return.
+            offset: Number of users to skip.
+            limit: Maximum number of users to return.
 
         Returns:
-            List[User]: List of users.
+            The users in this page.
         """
         
         return self.crud.read_users(offset, limit)
     
     # ── Public: Commands ─────────────────────────────────────────────────────────────────────────────────────────────────
     def create_user(self, user: UserCreate) -> User:
-        """Create a new user with validation and password hashing.
+        """Create a user after checking uniqueness, and hash their password.
 
         Args:
-            user (UserCreate): The user data to create.
+            user: Signup or admin-create data.
 
         Returns:
-            User: The newly created user.
+            The created user.
 
         Raises:
-            DuplicateEmailError: If email already exists.
-            DuplicateUsernameError: If username already exists.
+            DuplicateEmailError: If the email is already used.
+            DuplicateUsernameError: If the username is already taken.
         """
         
         # Check if email already exists
@@ -126,17 +106,17 @@ class UserService:
         return self.crud.create_user(user_data)
 
     def update_user(self, user_id: uuid.UUID, user: UserUpdate) -> User:
-        """Update an existing user's information.
+        """Partially update a user. A new password is hashed before saving.
 
         Args:
-            user_id (uuid.UUID): The unique identifier of the user.
-            user (UserUpdate): The new user data to apply.
+            user_id: ID of the user.
+            user: Fields to change; unset fields are left as they are.
 
         Returns:
-            User: The updated user instance.
+            The updated user.
 
         Raises:
-            UserNotFoundError: If the user was not found.
+            UserNotFoundError: If no user has this ID.
         """
         
         db_user = self.crud.read_user(user_id)
@@ -152,13 +132,16 @@ class UserService:
         return self.crud.update_user(db_user, user_data)
 
     def delete_user(self, user_id: uuid.UUID) -> dict:
-        """Delete a user.
+        """Delete a user and, through cascade, their recipes and images.
 
         Args:
-            user_id (uuid.UUID): The unique identifier of the user.
+            user_id: ID of the user.
+
+        Returns:
+            `{"ok": True}`.
 
         Raises:
-            UserNotFoundError: If the user was not found.
+            UserNotFoundError: If no user has this ID.
         """
         
         db_user = self.crud.read_user(user_id)
@@ -171,21 +154,19 @@ class UserService:
         return {"ok": True}
 
     def authenticate_and_create_token(self, mail: str, password: str) -> dict:
-        """Authenticate user credentials and generate access token.
-
-        Validates user credentials, checks account status, and creates a JWT token
-        for authenticated sessions.
+        """Check the credentials and return a JWT access token.
 
         Args:
-            mail (str): User's email address.
-            password (str): User's plain text password.
+            mail: Email or username.
+            password: Plain text password.
 
         Returns:
-            dict: Token response with access_token and token_type.
+            `{"access_token": ..., "token_type": "bearer"}`. The token's `sub` is
+            the user's email.
 
         Raises:
-            InvalidCredentialsError: Invalid email or password.
-            UserDisabledError: Account is disabled.
+            InvalidCredentialsError: If the user does not exist or the password is wrong.
+            UserDisabledError: If the account is disabled.
         """
         
         user = self.crud.get_user_by_email(mail)

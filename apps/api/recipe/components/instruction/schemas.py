@@ -1,11 +1,4 @@
-##############################################################################################################
-#
-# Pydantic schemas for instruction data validation and serialization.
-#
-# This module defines the various schemas used for creating, updating, and
-# returning instruction data through the API endpoints.
-#
-##############################################################################################################
+"""Request and response schemas for instructions."""
 
 import uuid
 from pydantic import BaseModel, model_validator, field_validator
@@ -14,46 +7,37 @@ from . import InstructionBase
 
 
 class InstructionPublic(InstructionBase):
-    """Schema for returning instruction data in API responses.
-
-    Includes all base instruction fields plus the unique identifier.
+    """Instruction returned by the API.
 
     Attributes:
-        id (uuid.UUID): The unique identifier for the instruction.
+        id: The instruction's ID.
     """
     id: uuid.UUID
 
 
 class InstructionCreate(InstructionBase):
-    """Schema for creating a new instruction.
-
-    Inherits all base instruction fields that are required for creation.
+    """Instruction fields used to insert a row.
 
     Attributes:
-        recipe_id (UUID): The recipe identifier for this instruction.
+        recipe_id: ID of the recipe.
     """
     recipe_id: uuid.UUID
 
 
 class InstructionUpdate(InstructionBase):
-    """Schema for updating instruction data.
-
-    All fields are optional to allow partial updates.
-
-    Attributes:
-        title (str, optional): The updated instruction title.
-        details (str, optional): The updated instruction details.
-        recipe_id (UUID, optional): The updated recipe reference.
-    """
+    """Partial update of an instruction. Only the fields sent are changed."""
     title: str | None = None
     details: str | None = None
     recipe_id: uuid.UUID | None = None
 
 
 class NewInstructionCreate(BaseModel):
-    """Schema for creating a new instruction.
+    """One step in the `NewRecipe` body.
 
-    Inherits all base instruction fields that are required for creation.
+    Attributes:
+        id: Ignored on create.
+        title: Short name of the step.
+        details: Full text of the step.
     """
     id: uuid.UUID | None = None
     title: str
@@ -61,6 +45,17 @@ class NewInstructionCreate(BaseModel):
 
 
 class PatchInstruction(BaseModel):
+    """One step in the `PatchRecipe` body.
+
+    Send `id` to keep and update an existing step, or `new=True` without an
+    `id` to add one.
+
+    Attributes:
+        id: ID of an existing step.
+        title: Short name of the step.
+        details: Full text of the step.
+        new: True to create this step.
+    """
     id: uuid.UUID | None = None
     title: str
     details: str
@@ -68,6 +63,7 @@ class PatchInstruction(BaseModel):
 
     @model_validator(mode="after")
     def validate_new_or_existing(self) -> "PatchInstruction":
+        """Require exactly one of `id` or `new=True`."""
         has_id = self.id is not None
         is_new = self.new is True
 

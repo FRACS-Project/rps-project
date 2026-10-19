@@ -1,4 +1,5 @@
-"""Recipe tag module exports."""
+"""Recipe-tag link table."""
+
 from .models import RecipeTag
 
 __all__ = [

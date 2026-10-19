@@ -1,16 +1,4 @@
-##############################################################################################################
-#
-# Tag Management Routes
-#
-# This module provides HTTP endpoints for Tag management.
-# Routes handle HTTP request/response and delegate business logic to the service layer.
-#
-# Architecture:
-#   - Routes: HTTP layer (request parsing, response formatting)
-#   - Services: Business logic (validation, orchestration)
-#   - CRUD: Database operations (queries, inserts, updates, deletes)
-#
-##############################################################################################################
+"""Tag endpoints under `/tag`. Login required; writes are admin only."""
 
 import uuid
 from fastapi import APIRouter, Depends, HTTPException
@@ -43,14 +31,10 @@ router = APIRouter(
 @router.post("/", response_model=TagPublic, dependencies=[Depends(get_current_admin_user)])
 def create_tag(tag: TagCreate,
                session: Session = Depends(get_session)):
-    """Create a new Tag.
+    """Admin: create a tag.
 
-    Args:
-        tag (TagCreate): Tag payload.
-        session (Session): Database session dependency.
-
-    Returns:
-        TagPublic: Created Tag data.
+    Raises:
+        DuplicateTagNameError: 409 if a tag already has this name.
     """
     service = TagService(session)
     return service.create_tag(tag)
@@ -61,16 +45,7 @@ def get_tags(
         offset: OffsetQuery = DEFAULT_OFFSET,
         limit: LimitQuery = DEFAULT_LIMIT,
         session: Session = Depends(get_session)):
-    """Retrieve a paginated list of Tags.
-
-    Args:
-        offset (OffsetQuery): Number of tags to skip (for pagination).
-        limit (LimitQuery): Maximum number of tags to return.
-        session (Session): Database session dependency.
-
-    Returns:
-        List[TagPublic]: List of tags.
-    """
+    """List tags, paginated with `offset` and `limit`."""
     service = TagService(session)
     return service.get_tags(offset, limit)
 
@@ -79,14 +54,10 @@ def get_tags(
 def get_tag(
         tag_id: uuid.UUID,
         session: Session = Depends(get_session)):
-    """Retrieve a specific Tag by its ID.
+    """Get a tag by ID.
 
-    Args:
-        tag_id (UUID): The unique identifier of the tag.
-        session (Session): The database session dependency.
-
-    Returns:
-        TagPublic: The tag data.
+    Raises:
+        TagNotFoundError: 404 if no tag has this ID.
     """
 
     service = TagService(session)
@@ -98,15 +69,10 @@ def update_tag(
         tag_id: uuid.UUID,
         tag: TagUpdate,
         session: Session = Depends(get_session)):
-    """Update a specific Tag by its ID.
+    """Admin: rename a tag.
 
-    Args:
-        tag_id (UUID): The unique identifier of the tag.
-        tag (TagUpdate): Fields to update and their new values.
-        session (Session): The database session dependency.
-
-    Returns:
-        TagPublic: The updated tag data.
+    Raises:
+        TagNotFoundError: 404 if no tag has this ID.
     """
 
     service = TagService(session)
@@ -117,14 +83,10 @@ def update_tag(
 def delete_tag(
         tag_id: uuid.UUID,
         session: Session = Depends(get_session)):
-    """Delete a Tag by its ID.
+    """Admin: delete a tag.
 
-    Args:
-        tag_id (UUID): The unique identifier of the tag.
-        session (Session): The database session dependency.
-
-    Returns:
-        dict: Confirmation message.
+    Raises:
+        TagNotFoundError: 404 if no tag has this ID.
     """
 
     service = TagService(session)

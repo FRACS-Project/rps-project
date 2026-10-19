@@ -1,22 +1,10 @@
-##############################################################################################################
-#
-# Recipe Service Layer - Business Logic and Validation
-#
-# This module contains the service layer for recipe management.
-# Services handle all business logic, validation, and coordinate between routes and CRUD.
-#
-# Architecture:
-#   - Receives requests from routes (HTTP layer)
-#   - Validates business rules (duplicates, existence)
-#   - Coordinates CRUD operations (database layer)
-#   - Handles error conditions with domain-specific exceptions
-#
-# Key Responsibilities:
-#   - Recipe creation with duplicate name checking
-#   - Recipe retrieval and pagination
-#   - Recipe updates and deletion with existence validation
-#
-##############################################################################################################
+"""Recipe service.
+
+For user requests, `RecipeService` orchestrates the whole recipe: it
+validates the payload, delegates ingredients, tags, instructions and images
+to their own services, and commits once. User-scoped methods check that
+the recipe belongs to the user. Admin methods work on the recipe fields only.
+"""
 
 import uuid
 from sqlmodel import Session
@@ -53,18 +41,15 @@ from ..shared.image.services import ImageService
 
 
 class RecipeService:
-    """Service layer for recipe management.
-
-    Handles all business logic related to recipes including creation, validation,
-    and lifecycle operations. Coordinates between HTTP routes and database CRUD.
-    """
+    """Business logic for recipes."""
     # ── Constructor ─────────────────────────────────────────────────────────────────────────────────────────────────
 
     def __init__(self, db: Session):
-        """Initialize RecipeService with database session.
+        """Initialize with a database session.
 
         Args:
-            db (Session): Database session for executing queries via CRUD layer.
+            db: Database session shared by all the services it uses, so one
+                commit covers the whole recipe.
         """
         self.db = db
         self.crud = RecipeCrud(self.db)
@@ -75,16 +60,16 @@ class RecipeService:
 
     # ── Public: Queries ─────────────────────────────────────────────────────────────────────────────────────────────────
     def get_recipe(self, recipe_id: uuid.UUID) -> Recipe:
-        """Retrieve a specific recipe by ID.
+        """Return a recipe by ID, from any user.
 
         Args:
-            recipe_id (uuid.UUID): The unique identifier of the recipe.
+            recipe_id: ID of the recipe.
 
         Returns:
-            Recipe: The found recipe instance.
+            The recipe.
 
         Raises:
-            RecipeNotFoundError: If the recipe is not found.
+            RecipeNotFoundError: If no recipe has this ID.
         """
         recipe = self.crud.read_recipe(recipe_id)
         if not recipe:
@@ -93,59 +78,78 @@ class RecipeService:
         return recipe
 
     def get_recipe_images(self, recipe_id: uuid.UUID) -> list[ImagePublic]:
+        """Return the recipe's active images."""
 
         return self.image_service.get_images_by_recipe(recipe_id)
 
     def get_recipe_image_primary(self, recipe_id: uuid.UUID) -> ImagePublic:
+        """Return the recipe's primary image.
+
+        Raises:
+            ImageNotFoundError: If the recipe has no primary image.
+        """
 
         return self.image_service.get_primary_image_by_recipe(recipe_id)
 
     def get_recipes(self, offset: int = 0, limit: int = 0) -> list[Recipe]:
-        """Retrieve a paginated list of recipes.
+        """Return a page of recipes from all users.
 
         Args:
-            offset (int): Number of recipes to skip (for pagination).
-            limit (int): Maximum number of recipes to return.
+            offset: Number of recipes to skip.
+            limit: Maximum number of recipes to return.
 
         Returns:
-            List[Recipe]: List of recipes.
+            The recipes in this page.
         """
         return self.crud.read_recipes(offset, limit)
 
     # ── Public: User-scoped Queries ─────────────────────────────────────────────────────────────────────────────────────────────────
     def get_recipes_by_name(self, offset: int, limit: int, recipe_name: str):
+        """Return a page of recipes whose name contains `recipe_name`."""
         return self.crud.read_recipes_by_name(offset, limit, recipe_name)
 
     def get_recipes_by_user(self, offset: int, limit: int, user_id: uuid.UUID) -> list[Recipe]:
-        """Retrieve a paginated list of recipes for a given user.
+        """Return a page of the user's recipes.
 
         Args:
-            offset (int): Number of recipes to skip (for pagination).
-            limit (int): Maximum number of recipes to return.
-            user_id (UUID): The user's unique identifier.
+            offset: Number of recipes to skip.
+            limit: Maximum number of recipes to return.
+            user_id: ID of the owner.
 
         Returns:
-            list[Recipe]: List of recipes for the given user.
+            The user's recipes in this page.
         """
         recipe = self.crud.read_recipes_by_user(offset, limit, user_id)
         return recipe
 
     def get_recipe_by_user(self, recipe_id: uuid.UUID, user_id: uuid.UUID) -> Recipe:
-        """Retrieve a recipe owned by the user."""
+        """Return one of the user's recipes.
+
+        Args:
+            recipe_id: ID of the recipe.
+            user_id: ID of the user making the request.
+
+        Returns:
+            The recipe.
+
+        Raises:
+            RecipeNotFoundError: If no recipe has this ID.
+            NotUserRecipeError: If the recipe belongs to another user.
+        """
         return self._get_owned_recipe(recipe_id, user_id)
 
     # ── Public: Commands ─────────────────────────────────────────────────────────────────────────────────────────────────
     def create_recipe(self, recipe: RecipeCreate) -> Recipe:
-        """Create a new recipe with duplicate name validation.
+        """Admin: create a recipe row only, without related data.
 
         Args:
-            recipe (RecipeCreate): The recipe data to create.
+            recipe: Recipe fields, including the owner.
 
         Returns:
-            Recipe: The newly created recipe.
+            The created recipe.
 
         Raises:
-            DuplicateRecipeNameError: If recipe name already exists.
+            DuplicateRecipeNameError: If any recipe already has this name.
         """
         if self.crud.read_recipe_by_name(recipe.name):
             raise DuplicateRecipeNameError()
@@ -153,17 +157,18 @@ class RecipeService:
         return self.crud.create_recipe(recipe)
 
     def update_recipe(self, recipe_id: uuid.UUID, recipe: RecipeUpdate) -> Recipe:
-        """Update an existing recipe's information.
+        """Admin: partially update the recipe fields. Only the fields sent are changed.
 
         Args:
-            recipe_id (uuid.UUID): The unique identifier of the recipe.
-            recipe (RecipeUpdate): The new recipe data to apply.
+            recipe_id: ID of the recipe.
+            recipe: Fields to change.
 
         Returns:
-            Recipe: The updated recipe instance.
+            The updated recipe.
 
         Raises:
-            RecipeNotFoundError: If the recipe is not found.
+            RecipeNotFoundError: If no recipe has this ID.
+            EmptyRecipeUpdateError: If no field is set.
         """
         db_recipe = self.crud.read_recipe(recipe_id)
         if not db_recipe:
@@ -177,13 +182,16 @@ class RecipeService:
         return self.crud.update_recipe(db_recipe, recipe_data)
 
     def delete_recipe(self, recipe_id: uuid.UUID) -> dict[str, bool]:
-        """Delete a recipe by ID.
+        """Admin: delete any recipe.
 
         Args:
-            recipe_id (uuid.UUID): The unique identifier of the recipe.
+            recipe_id: ID of the recipe.
+
+        Returns:
+            `{"ok": True}`.
 
         Raises:
-            RecipeNotFoundError: If the recipe is not found.
+            RecipeNotFoundError: If no recipe has this ID.
         """
         db_recipe = self.crud.read_recipe(recipe_id)
         if not db_recipe:
@@ -194,19 +202,24 @@ class RecipeService:
 
     # ── Public: User-scoped Commands ─────────────────────────────────────────────────────────────────────────────────────────────────
     def create_recipe_by_user(self, recipe: NewRecipe, user_id: uuid.UUID) -> Recipe:
-        """Create a recipe and related entities in one operation.
+        """Create a recipe with its ingredients, tags, instructions and images.
+
+        Everything is written in one transaction. New image files are saved to
+        disk only after the commit succeeds.
 
         Args:
-            recipe (NewRecipe): The aggregated recipe payload.
-            user_id (UUID): The user's unique identifier.
+            recipe: The full recipe payload.
+            user_id: ID of the owner.
 
         Returns:
-            Recipe: The created recipe with related data.
+            The created recipe with its related data.
 
         Raises:
-            NoIngredientInRecipeError: If no ingredients are provided.
-            NoTagInRecipeError: If no tags are provided.
-            NoInstructionInRecipeError: If no instructions are provided.
+            DuplicateRecipeNameError: If the user already has a recipe with this name.
+            NoIngredientInRecipeError: If the ingredients are missing or invalid.
+            NoTagInRecipeError: If the tags are missing or invalid.
+            NoInstructionInRecipeError: If the instructions are missing or invalid.
+            NoImageInRecipeError: If an image has neither an ID nor data.
         """
 
         if self.crud.read_recipe_by_name_by_user(recipe.name, user_id):
@@ -263,18 +276,28 @@ class RecipeService:
         recipe: PatchRecipe,
         user_id: uuid.UUID
     ) -> Recipe:
-        """Update an existing recipe's information.
+        """Replace a recipe's fields and related data with the payload.
+
+        Ingredient lines, tags and instructions missing from the payload are
+        removed; new ones are created. Images are only synced when `images` is
+        sent. Everything is written in one transaction.
 
         Args:
-            recipe_id (uuid.UUID): The unique identifier of the recipe.
-            recipe (RecipeUpdate): The new recipe data to apply.
-            user_id (UUID): The user's unique identifier.
+            recipe_id: ID of the recipe.
+            recipe: The full recipe payload.
+            user_id: ID of the user making the request.
 
         Returns:
-            Recipe: The updated recipe instance.
+            The updated recipe with its related data.
 
         Raises:
-            RecipeNotFoundError: If the recipe is not found.
+            RecipeNotFoundError: If no recipe has this ID.
+            NotUserRecipeError: If the recipe belongs to another user.
+            DuplicateRecipeNameError: If the new name is used by another of the user's recipes.
+            NoIngredientInRecipeError: If the ingredients are missing or invalid.
+            NoTagInRecipeError: If the tags are missing or invalid.
+            NoInstructionInRecipeError: If the instructions are missing or invalid.
+            NoImageInRecipeError: If an image has neither an ID nor data.
         """
 
         # Get recipe
@@ -329,14 +352,18 @@ class RecipeService:
         return self.crud.refresh_recipe(db_recipe)
 
     def delete_recipe_by_user(self, recipe_id: uuid.UUID, user_id: uuid.UUID):
-        """Delete a recipe of a user by recipe ID.
+        """Delete one of the user's recipes.
 
         Args:
-            recipe_id (uuid.UUID): The unique identifier of the recipe.
-            user_id (uuid.UUID): The unique identifier of the user
+            recipe_id: ID of the recipe.
+            user_id: ID of the user making the request.
+
+        Returns:
+            `{"ok": True}`.
 
         Raises:
-            RecipeNotFoundError: If the recipe is not found.
+            RecipeNotFoundError: If no recipe has this ID.
+            NotUserRecipeError: If the recipe belongs to another user.
         """
         db_recipe = self._get_owned_recipe(recipe_id, user_id)
 
@@ -345,22 +372,29 @@ class RecipeService:
 
     # ── Private: Validation ─────────────────────────────────────────────────────────────────────────────────────────────────
     def _validate_ingredients(self, ingredients: list) -> None:
-        """Validate that ingredients exist and are provided."""
+        """Raise NoIngredientInRecipeError unless at least one ingredient has an ID or a name."""
         if not ingredients or not any(
                 ingredient.ingredient_id or ingredient.name for ingredient in ingredients):
             raise NoIngredientInRecipeError()
 
     def _validate_tags(self, tags: list) -> None:
-        """Validate that tags exist and are provided"""
+        """Raise NoTagInRecipeError unless every tag has an ID or is new with a name."""
         if not tags or not all(tag.id or (tag.new and tag.name) for tag in tags):
             raise NoTagInRecipeError()
 
     def _validate_instructions(self, instructions: list) -> None:
+        """Raise NoInstructionInRecipeError unless every step has an ID or a title and details."""
         if not instructions or not all(
                 instruction.id or (instruction.title and instruction.details) for instruction in instructions):
             raise NoInstructionInRecipeError()
 
     def _validate_images(self, images: list[ImagePayload]) -> None:
+        """Check each image has an ID or new data, then check the file types.
+
+        Raises:
+            NoImageInRecipeError: If an image has neither.
+            WrongImageType: If a new image is not an allowed image type.
+        """
         if not images:
             return
 
@@ -372,7 +406,12 @@ class RecipeService:
 
     # ── Private: Helpers ─────────────────────────────────────────────────────────────────────────────────────────────────
     def _get_owned_recipe(self, recipe_id: uuid.UUID, user_id: uuid.UUID) -> Recipe:
-        """Return the recipe if it exists and belongs to the user."""
+        """Return the recipe if it exists and belongs to the user.
+
+        Raises:
+            RecipeNotFoundError: If no recipe has this ID.
+            NotUserRecipeError: If the recipe belongs to another user.
+        """
         db_recipe = self.crud.read_recipe(recipe_id)
         if not db_recipe:
             raise RecipeNotFoundError()

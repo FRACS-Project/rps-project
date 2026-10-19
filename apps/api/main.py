@@ -1,12 +1,8 @@
-##############################################################################################################
-#
-# FastAPI application entry point and configuration.
-#
-# This module sets up the FastAPI application, including router configuration,
-# static file serving, database initialization, and path management for both
-# backend and frontend components.
-#
-##############################################################################################################
+"""FastAPI application entry point.
+
+Creates the app, creates the database tables on startup and registers
+every router from `routes.all_routers`.
+"""
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
@@ -21,6 +17,7 @@ from .core.path import FRONTEND_DIR
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """Create the database tables when the app starts."""
     create_db_and_tables()
     yield
 

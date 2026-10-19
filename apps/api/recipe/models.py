@@ -1,12 +1,4 @@
-##############################################################################################################
-#
-# Database models for recipe management.
-#
-# This module defines the SQLModel classes for recipe data persistence,
-# including base recipe information and the complete recipe model with
-# relationships to user, recipe ingredients and instructions.
-#
-##############################################################################################################
+"""Recipe table model."""
 
 from typing import TYPE_CHECKING
 import uuid
@@ -23,13 +15,14 @@ if TYPE_CHECKING:
 
 
 class RecipeBase(SQLModel):
-    """Base model for recipe information.
-    
+    """Fields shared by the recipe table and its schemas.
+
     Attributes:
-        name (str): The recipe name.
-        preparation_time (int): Time in minutes to prepare the recipe. Defaults to 0.
-        cooking_time (int): Time in minutes to cook the recipe. Defaults to 0.
-        description (str): Detailed description of the recipe. Defaults to empty string.
+        name: Recipe name, unique per owner.
+        preparation_time: Preparation time in minutes.
+        cooking_time: Cooking time in minutes.
+        description: Free text description.
+        base_serving: Number of servings the quantities are written for.
     """
     name: str
     preparation_time: int = 0
@@ -39,24 +32,20 @@ class RecipeBase(SQLModel):
 
 
 class Recipe(RecipeBase, table=True):
-    """Complete recipe model for database storage.
-    
-    Extends RecipeBase to include:
-    - Unique identifier
-    - Creation timestamp
-    - Relationship to user
-    - Relationship to recipe ingredients
-    - Relationship to recipe instructions
-    
+    """Recipe table.
+
+    Deleting a recipe also deletes its ingredient links, instructions and
+    images. Tags are linked through `RecipeTag` and are not deleted.
+
     Attributes:
-        id (UUID): Unique identifier for the recipe.
-        date_created (datetime): When the recipe was created.
-        owner (User): The user who created the recipe.
-        owner_id (UUID): Foreign key to the user.
-        ingredients (list[RecipeIngredient]): The ingredients used in this recipe.
-        instructions (list[Instruction]): The instructions for this recipe.
-        tags (list[Tag]): The tags associated with this recipe.
-        images (list[Image]): The images associated with this recipe.
+        id: Primary key.
+        date_created: Creation time (UTC).
+        owner_id: ID of the user who owns the recipe.
+        owner: The user who owns the recipe.
+        ingredients: Ingredient lines (quantity, unit, ingredient).
+        instructions: Preparation steps.
+        tags: Tags attached to the recipe.
+        images: Images attached to the recipe.
     """
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     date_created: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), nullable=False)

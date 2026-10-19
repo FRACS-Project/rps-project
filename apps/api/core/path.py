@@ -1,3 +1,5 @@
+"""Filesystem paths inside the container (frontend build, storage, uploads)."""
+
 from pathlib import Path
 
 BASE_DIR = Path("/app")

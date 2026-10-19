@@ -1,11 +1,8 @@
-##############################################################################################################
-#
-# Recipe-ingredient management router providing CRUD operations for recipe-ingredient relationships.
-#
-# This module implements the REST API endpoints for managing recipe-ingredient relationships,
-# including creation, retrieval, updating, and deletion of recipe-ingredient associations.
-#
-##############################################################################################################
+"""Recipe ingredient endpoints under `/recipe_ingredient`.
+
+Login required for reads; writes are admin only. Users edit ingredient
+lines through `PATCH /recipe/me/{recipe_id}` instead.
+"""
 
 import uuid
 from fastapi import APIRouter, Depends
@@ -39,14 +36,10 @@ def create_recipe_ingredient(
     recipe_ingredient: RecipeIngredientCreate,
     session: Session = Depends(get_session)
 ) -> RecipeIngredientPublic:
-    """Create a recipe-ingredient relationship.
+    """Admin: add an ingredient line to any recipe.
 
-    Args:
-        recipe_ingredient (RecipeIngredientCreate): Relationship payload.
-        session (Session): Database session dependency.
-
-    Returns:
-        RecipeIngredientPublic: Created relationship data.
+    Raises:
+        DuplicateRecipeIngredientError: 409 if the recipe already uses this ingredient.
     """
     service = RecipeIngredientService(session)
     return service.create_recipe_ingredient(recipe_ingredient)
@@ -58,16 +51,7 @@ def get_recipe_ingredients(
     limit: LimitQuery = DEFAULT_LIMIT,
     session: Session = Depends(get_session)
 ) -> list[RecipeIngredientPublicWithAll]:
-    """Retrieve a paginated list of recipe-ingredient relationships.
-
-    Args:
-        offset (OffsetQuery): Number of relationships to skip (for pagination).
-        limit (LimitQuery): Maximum number of relationships to return.
-        session (Session): Database session dependency.
-
-    Returns:
-        List[RecipeIngredientPublicWithAll]: List of relationships with ingredient data.
-    """
+    """List ingredient lines from all recipes, paginated with `offset` and `limit`."""
     service = RecipeIngredientService(session)
     return service.get_recipe_ingredients(offset, limit)
 
@@ -77,14 +61,10 @@ def get_recipe_ingredient(
     recipe_ingredient_id: uuid.UUID,
     session: Session = Depends(get_session)
 ) -> RecipeIngredientPublic:
-    """Retrieve a specific recipe-ingredient relationship by ID.
+    """Get an ingredient line by ID.
 
-    Args:
-        recipe_ingredient_id (UUID): The unique identifier of the relationship.
-        session (Session): Database session dependency.
-
-    Returns:
-        RecipeIngredientPublic: Relationship data.
+    Raises:
+        RecipeIngredientNotFoundError: 404 if no line has this ID.
     """
     service = RecipeIngredientService(session)
     return service.get_recipe_ingredient(recipe_ingredient_id)
@@ -99,15 +79,10 @@ def update_recipe_ingredient(
     recipe_ingredient: RecipeIngredientUpdate,
     session: Session = Depends(get_session)
 ):
-    """Update a specific recipe-ingredient relationship by ID.
+    """Admin: partially update an ingredient line.
 
-    Args:
-        recipe_ingredient_id (UUID): The unique identifier of the relationship.
-        recipe_ingredient (RecipeIngredientUpdate): Fields to update.
-        session (Session): Database session dependency.
-
-    Returns:
-        RecipeIngredientPublic: Updated relationship data.
+    Raises:
+        RecipeIngredientNotFoundError: 404 if no line has this ID.
     """
     service = RecipeIngredientService(session)
     return service.update_recipe_ingredient(recipe_ingredient_id, recipe_ingredient)
@@ -118,14 +93,10 @@ def delete_recipe_ingredient(
     recipe_ingredient_id: uuid.UUID,
     session: Session = Depends(get_session)
 ) -> dict[str, bool]:
-    """Delete a recipe-ingredient relationship by ID.
+    """Admin: delete an ingredient line.
 
-    Args:
-        recipe_ingredient_id (UUID): The unique identifier of the relationship.
-        session (Session): Database session dependency.
-
-    Returns:
-        dict[str, bool]: Confirmation message.
+    Raises:
+        RecipeIngredientNotFoundError: 404 if no line has this ID.
     """
     service = RecipeIngredientService(session)
     return service.delete_recipe_ingredient(recipe_ingredient_id)

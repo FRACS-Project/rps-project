@@ -1,16 +1,4 @@
-##############################################################################################################
-#
-# Image Management Routes
-#
-# This module provides HTTP endpoints for image management.
-# Routes handle HTTP request/response and delegate business logic to the service layer.
-#
-# Architecture:
-#   - Routes: HTTP layer (request parsing, response formatting)
-#   - Services: Business logic (validation, orchestration)
-#   - CRUD: Database operations (queries, inserts, updates, deletes)
-#
-##############################################################################################################
+"""Image endpoints under `/image`. Login required."""
 
 import uuid
 
@@ -48,15 +36,7 @@ def get_images_by_recipe(
         recipe_id: uuid.UUID,
         session: Session = Depends(get_session)
 ):
-    """Retrieve all the images of a recipe by it's id (recipe).
-
-    Args:
-        recipe_id (UUID): The unique identifier of the recipe.
-        session (Session): The database session dependency.
-
-    Returns:
-        ImagePublic: The image with related data.
-    """
+    """List a recipe's active images with their files as base64. Same as `GET /recipe/{recipe_id}/images`."""
     service = ImageService(session)
     return service.get_images_by_recipe(recipe_id)
 

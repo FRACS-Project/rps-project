@@ -1,15 +1,9 @@
-##############################################################################################################
-#
-# Ingredient Exceptions
-#
-# HTTPException subclasses used by the Ingredient service layer for consistent API errors.
-#
-##############################################################################################################
+"""HTTP errors raised by the ingredient service."""
 
 from fastapi import HTTPException, status
 
 class DuplicateIngredientNameError(HTTPException):
-    """Raised when an ingredient name is already in use."""
+    """409: an ingredient with this name already exists."""
     def __init__(self):
         super().__init__(
             status_code=status.HTTP_409_CONFLICT,
@@ -17,7 +11,7 @@ class DuplicateIngredientNameError(HTTPException):
         )
 
 class IngredientNotFoundError(HTTPException):
-    """Raised when an ingredient lookup fails."""
+    """404: no ingredient has this ID."""
     def __init__(self):
         super().__init__(
             status_code=status.HTTP_404_NOT_FOUND,

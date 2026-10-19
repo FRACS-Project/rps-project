@@ -1,11 +1,4 @@
-##############################################################################################################
-#
-# Database models for tag management.
-#
-# This module defines the SQLModel classes for tag data persistence,
-# including base tag information and the complete tag model with relationships.
-#
-##############################################################################################################
+"""Tag table model. Tags are shared by all users and linked to recipes through `RecipeTag`."""
 
 import uuid
 from typing import TYPE_CHECKING
@@ -19,24 +12,20 @@ if TYPE_CHECKING:
 
 
 class TagBase(SQLModel):
-    """Base model for tag information.
+    """Fields shared by the tag table and its schemas.
 
     Attributes:
-        name (str): The tag name.
+        name: Unique tag name.
     """
     name: str = Field(index=True, unique=True)
 
 
 class Tag(TagBase, table=True):
-    """Complete tag model for database storage.
-
-    Extends TagBase to include:
-    - Unique identifier
-    - Relationship to recipes
+    """Tag table.
 
     Attributes:
-        id (UUID): Unique identifier for the tag.
-        recipes (list[Recipe]): The recipes associated with this tag.
+        id: Primary key.
+        recipes: Recipes that have this tag.
     """
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
 

@@ -1,10 +1,4 @@
-##############################################################################################################
-#
-# Instruction Exceptions
-#
-# HTTPException subclasses used by the Instruction service layer for consistent API errors.
-#
-##############################################################################################################
+"""HTTP errors raised by the instruction service."""
 
 from fastapi import HTTPException, status
 
@@ -17,7 +11,7 @@ from fastapi import HTTPException, status
 #         )
 
 class InstructionNotFoundError(HTTPException):
-    """Raised when an instruction lookup fails."""
+    """404: no instruction has this ID."""
     def __init__(self):
         super().__init__(
             status_code=status.HTTP_404_NOT_FOUND,

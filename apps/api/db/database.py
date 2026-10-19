@@ -1,11 +1,9 @@
-##############################################################################################################
-#
-# Database configuration and session management.
-#
-# This module handles the SQLModel database setup, including engine configuration,
-# session management, and table creation for the application's SQLite database.
-# 
-##############################################################################################################
+"""Database engine and sessions.
+
+Builds the PostgreSQL engine from `DATABASE_URL` and provides the
+per-request session dependency. Tables are created with `create_all`
+(no migrations yet).
+"""
 
 import os
 from sqlalchemy import event
@@ -33,9 +31,11 @@ if not DATABASE_URL:
 engine = create_engine(DATABASE_URL, echo=True, pool_pre_ping=True)
 
 def create_db_and_tables():
+    """Create all tables that do not exist yet. Does not alter existing ones."""
     SQLModel.metadata.create_all(engine)
 
 
 def get_session():
+    """FastAPI dependency: yield a database session for one request."""
     with Session(engine) as session:
         yield session

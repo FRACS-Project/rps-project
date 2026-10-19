@@ -1,4 +1,5 @@
-"""Core module exports."""
+"""Core module: password hashing, JWT tokens and auth dependencies."""
+
 from .security import (
     hash_password,
     verify_password,

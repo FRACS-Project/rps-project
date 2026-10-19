@@ -1,11 +1,4 @@
-##############################################################################################################
-#
-# Database models for ingredient management.
-#
-# This module defines the SQLModel classes for ingredient data persistence,
-# including base ingredient information and the complete ingredient model.
-#
-##############################################################################################################
+"""Ingredient table model. Ingredients are shared by all users and recipes."""
 
 import uuid
 from sqlmodel import SQLModel, Field
@@ -26,24 +19,19 @@ from sqlmodel import SQLModel, Field
 
 
 class IngredientBase(SQLModel):
-    """Base model for ingredient information.
-    
+    """Fields shared by the ingredient table and its schemas.
+
     Attributes:
-        name (str): The ingredient name.
-        type (IngredientType): The category type of the ingredient.
+        name: Ingredient name.
     """
     name: str
     # type: IngredientType
 
 
 class Ingredient(IngredientBase, table=True):
-    """Complete ingredient model for database storage.
-    
-    Extends IngredientBase to include a unique identifier.
-    
+    """Ingredient table.
+
     Attributes:
-        id (UUID): Unique identifier for the ingredient.
-        name (str): The ingredient name.
-        type (IngredientType): The category type of the ingredient.
+        id: Primary key.
     """
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)

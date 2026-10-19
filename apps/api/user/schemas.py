@@ -1,11 +1,4 @@
-##############################################################################################################
-#
-# Pydantic schemas for user data validation and serialization.
-#
-# This module defines the various schemas used for creating, updating, and
-# returning user data through the API endpoints.
-#
-##############################################################################################################
+"""Request and response schemas for users."""
 
 import re
 import uuid
@@ -15,30 +8,32 @@ from . import UserBase
 
 
 class UserPublic(UserBase):
-    """Schema for publicly viewable user data.
+    """User data returned by the API. Never includes the password hash.
 
     Attributes:
-        id (UUID): The user's unique identifier.
-        name (str): The username.
-        mail (EmailStr): The user's email address (unique).
-        admin (bool, optional): Whether the user has admin privileges. Defaults to False.
-        disabled (bool, optional): Whether the user account is disabled. Defaults to False.
+        id: The user's ID.
     """
     id: uuid.UUID
 
 
 class UserCreate(UserBase):
-    """Schema for creating a new user.
+    """Body for creating a user (signup and admin create).
+
+    Validates the password strength and the username format, and lowercases
+    the email.
 
     Attributes:
-        password (str): The user's password in plain text (will be hashed).
+        password: Plain text password; hashed by `UserService`.
     """
     password: str = Field(..., min_length=1, description="User password")
 
     @field_validator("password")
     @classmethod
     def validate_password_strength(cls, v: str) -> str:
-        """Validate password meets security requirements."""
+        """Require 10+ characters with an uppercase letter, a lowercase letter and a digit.
+
+        The dev passwords "azerty" and "qsdfg" skip these checks.
+        """
         # Dev mode: allow "azerty" to bypass validation
         if v == "azerty" or v == "qsdfg":
             return v
@@ -56,7 +51,10 @@ class UserCreate(UserBase):
     @field_validator("name")
     @classmethod
     def validate_username(cls, v: str) -> str:
-        """Validate username format and sanitize."""
+        """Strip spaces and check the username format.
+
+        Rules: 3 to 50 characters; only letters, digits, `-` and `_`; no `--` or `__`.
+        """
         # Remove leading/trailing spaces
         v = v.strip()
 
@@ -80,21 +78,15 @@ class UserCreate(UserBase):
     @field_validator("mail", mode="after")
     @classmethod
     def normalize_email(cls, v: str) -> str:
-        """Normalize email to lowercase."""
+        """Lowercase the email and strip spaces."""
         return v.lower().strip()
 
 
 class UserUpdate(UserBase):
-    """Schema for updating user data.
-
-    All fields are optional to allow partial updates.
+    """Body for a partial user update. Only the fields sent are changed.
 
     Attributes:
-        name (str, optional): The updated username.
-        mail (str, optional): The updated email address.
-        admin (bool, optional): Whether to grant/revoke admin privileges.
-        password (str, optional): The new password in plain text (will be hashed).
-        disabled (bool, optional): Whether to disable the user account.
+        password: New plain text password; hashed by `UserService`.
     """
     name: str | None = None
     mail: str | None = None
@@ -105,7 +97,7 @@ class UserUpdate(UserBase):
     @field_validator("password")
     @classmethod
     def validate_new_password(cls, v: str) -> str:
-        """Only validate if password is being updated."""
+        """Check the new password's length, if one is sent. Only the length rule is applied."""
         if v is not None:  # Only check if provided
             # Same validation as UserCreate
             if len(v) < 10:
@@ -115,12 +107,9 @@ class UserUpdate(UserBase):
 
 
 class UserSignUp(UserBase):
-    """Schema for user registration/signup.
-
-    A simplified schema for the signup endpoint that includes only the essential
-    fields needed to create a new user account.
+    """Minimal signup body. Not used by any route (signup uses `UserCreate`).
 
     Attributes:
-        password (str): The user's chosen password in plain text (will be hashed).
+        password: Plain text password.
     """
     password: str

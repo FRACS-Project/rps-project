@@ -1,11 +1,4 @@
-##############################################################################################################
-#
-# Database models for instruction management.
-#
-# This module defines the SQLModel classes for instruction data persistence,
-# including base instruction information and the complete instruction model.
-#
-##############################################################################################################
+"""Instruction table model: the preparation steps of a recipe."""
 
 from typing import TYPE_CHECKING
 import uuid
@@ -16,29 +9,23 @@ if TYPE_CHECKING:
 
 
 class InstructionBase(SQLModel):
-    """Base model for instruction information.
-    
+    """Fields shared by the instruction table and its schemas.
+
     Attributes:
-        title (str): The instruction title or step name.
-        details (str): Detailed description of the instruction.
+        title: Short name of the step.
+        details: Full text of the step.
     """
     title: str
     details: str
 
 
 class Instruction(InstructionBase, table=True):
-    """Complete instruction model for database storage.
-    
-    Extends InstructionBase to include:
-    - Unique identifier
-    - Relationship to recipe
-    
+    """Instruction table. Deleted with its recipe.
+
     Attributes:
-        id (UUID): Unique identifier for the instruction.
-        title (str): The instruction title or step name.
-        details (str): Detailed description of the instruction.
-        recipe_id (UUID): Foreign key reference to the recipe.
-        recipe (Recipe): Related recipe object.
+        id: Primary key.
+        recipe_id: ID of the recipe.
+        recipe: The recipe this step belongs to.
     """
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
 

@@ -1,16 +1,10 @@
-##############################################################################################################
-#
-# Authentication Exceptions
-#
-# HTTPException subclasses used by the auth service layer for consistent API errors.
-#
-##############################################################################################################
+"""HTTP errors raised by the user and auth services."""
 
 from fastapi import HTTPException, status
 
 
 class DuplicateEmailError(HTTPException):
-    """Raised when an email address is already in use."""
+    """409: the email is already used by another account."""
     def __init__(self):
         super().__init__(
             status_code=status.HTTP_409_CONFLICT,
@@ -19,7 +13,7 @@ class DuplicateEmailError(HTTPException):
 
 
 class DuplicateUsernameError(HTTPException):
-    """Raised when a username is already in use."""
+    """409: the username is already taken."""
     def __init__(self):
         super().__init__(
             status_code=status.HTTP_409_CONFLICT,
@@ -28,7 +22,7 @@ class DuplicateUsernameError(HTTPException):
 
 
 class InvalidCredentialsError(HTTPException):
-    """Raised when credentials fail validation."""
+    """401: unknown user or wrong password."""
     def __init__(self):
         super().__init__(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -37,7 +31,7 @@ class InvalidCredentialsError(HTTPException):
 
 
 class UserNotFoundError(HTTPException):
-    """Raised when a user lookup fails."""
+    """404: no user has this ID."""
     def __init__(self):
         super().__init__(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -46,7 +40,7 @@ class UserNotFoundError(HTTPException):
 
 
 class UserDisabledError(HTTPException):
-    """Raised when an account is disabled or inactive."""
+    """403: the account is disabled."""
     def __init__(self):
         super().__init__(
             status_code=status.HTTP_403_FORBIDDEN,

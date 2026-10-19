@@ -1,16 +1,4 @@
-##############################################################################################################
-#
-# Bookmark Management Routes
-#
-# This module provides HTTP endpoints for bookmark management.
-# Routes handle HTTP request/response and delegate business logic to the service layer.
-#
-# Architecture:
-#   - Routes: HTTP layer (request parsing, response formatting)
-#   - Services: Business logic (validation, orchestration)
-#   - CRUD: Database operations (queries, inserts, updates, deletes)
-#
-##############################################################################################################
+"""Bookmark endpoints under `/bookmark/me`, for the logged-in user."""
 
 import uuid
 from fastapi import APIRouter, Depends
@@ -46,16 +34,7 @@ def create_bookmark(
         session: Session = Depends(get_session),
         current_user: UserPublic = Depends(get_current_active_user)
 ):
-    """Create a recipe with ingredients and instructions in one request.
-
-    Args:
-        recipe (NewRecipe): Aggregated recipe payload.
-        session (Session): The database session dependency.
-        current_user (UserPublic): Current authenticated user.
-
-    Returns:
-        RecipePublicWithAll: Created recipe with related data.
-    """
+    """Bookmark a recipe. `recipe_id` is a query parameter. Returns the recipe."""
 
     service = BookmarkService(session)
     return service.create_bookmark_by_user(recipe_id, current_user.id)
@@ -68,17 +47,7 @@ def get_my_bookmarks(
         session: Session = Depends(get_session),
         current_user: UserPublic = Depends(get_current_active_user)
 ):
-    """Retrieve bookmarked recipes by the current user.
-
-    Args:
-        offset (OffsetQuery): Number of recipes to skip (for pagination).
-        limit (LimitQuery): Maximum number of recipes to return.
-        session (Session): Database session dependency.
-        current_user (UserPublic): Current authenticated user.
-
-    Returns:
-        List[RecipePublicWithAll]: List of user's recipes with related data.
-    """
+    """List the recipes you bookmarked, paginated with `offset` and `limit`."""
     service = BookmarkService(session)
     return service.get_bookmarks_by_user(offset, limit, current_user.id)
 
@@ -89,15 +58,10 @@ def get_my_bookmark(
         session: Session = Depends(get_session),
         current_user: UserPublic = Depends(get_current_active_user)
 ):
-    """Retrieve a specific recipe by its ID.
+    """Get a recipe you bookmarked.
 
-    Args:
-        recipe_id (UUID): The unique identifier of the recipe.
-        session (Session): The database session dependency.
-        current_user (UserPublic): Current authenticated user.
-
-    Returns:
-        RecipePublicWithAll: The recipe with related data.
+    Raises:
+        BookmarkNotFoundError: 404 if you have not bookmarked this recipe.
     """
 
     service = BookmarkService(session)
@@ -110,15 +74,10 @@ def delete_bookmark(
         session: Session = Depends(get_session),
         current_user: UserPublic = Depends(get_current_active_user)
 ):
-    """Delete the recipe by its ID for the current user.
+    """Remove a bookmark. The recipe itself is not deleted.
 
-    Args:
-        recipe_id (UUID): The unique identifier of the recipe.
-        session (Session): The database session dependency.
-        current_user (UserPublic): Current authenticated user.
-
-    Returns:
-        dict: Confirmation message.
+    Raises:
+        BookmarkNotFoundError: 404 if you have not bookmarked this recipe.
     """
 
     service = BookmarkService(session)

@@ -1,4 +1,9 @@
-"""Database module exports."""
+"""Database module: engine, session dependency and table creation.
+
+Also imports every table model so `SQLModel.metadata` knows all tables
+before `create_db_and_tables()` runs.
+"""
+
 from .database import (
     engine,
     create_db_and_tables,

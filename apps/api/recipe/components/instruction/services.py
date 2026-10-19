@@ -1,22 +1,8 @@
-##############################################################################################################
-#
-# Instruction Service Layer - Business Logic and Validation
-#
-# This module contains the service layer for instruction management.
-# Services handle all business logic, validation, and coordinate between routes and CRUD.
-#
-# Architecture:
-#   - Receives requests from routes (HTTP layer)
-#   - Validates business rules (duplicates, existence)
-#   - Coordinates CRUD operations (database layer)
-#   - Handles error conditions with domain-specific exceptions
-#
-# Key Responsibilities:
-#   - Instruction creation with duplicate name checking
-#   - Instruction retrieval and pagination
-#   - Instruction updates and deletion with existence validation
-#
-##############################################################################################################
+"""Instruction service.
+
+Single-instruction CRUD for the admin routes, plus the `sync_*` methods
+that `RecipeService` calls to write a recipe's steps inside its transaction.
+"""
 
 import uuid
 from sqlmodel import Session
@@ -40,64 +26,35 @@ from ...models import Recipe
 from ....utils import LimitQuery, OffsetQuery
 
 class InstructionService:
-    """Service layer for instruction management.
-
-    Handles all business logic related to instructions including creation, validation,
-    and lifecycle operations. Coordinates between HTTP routes and database CRUD.
-    """
+    """Business logic for instructions."""
 
     def __init__(self, db: Session):
-        """Initialize InstructionService with database session.
+        """Initialize with a database session.
 
         Args:
-            db (Session): Database session for executing queries via CRUD layer.
+            db: Database session.
         """
         self.db = db
         self.crud = InstructionCrud(self.db)
 
     def create_instruction(self, instruction: InstructionCreate) -> Instruction:
-        """Create a new instruction in the database.
-        
-        Args:
-            instruction (InstructionCreate): The instruction data to create.
-            
-        Returns:
-            Instruction: The newly created instruction instance.
-        """
+        """Create an instruction and commit."""
         return self.crud.create_instruction(instruction)
     
     def pre_create_instruction(self, instruction: InstructionCreate) -> Instruction:
-        """Create a new instruction in the database.
-        
-        Args:
-            instruction (InstructionCreate): The instruction data to create.
-            
-        Returns:
-            Instruction: The newly created instruction instance.
-        """
+        """Create an instruction without committing."""
         return self.crud.pre_create_instruction(instruction)
 
 
     def get_instructions(self, offset: OffsetQuery = 0, limit: LimitQuery = 100) -> list[Instruction]:
-        """Retrieve a paginated list of all instructions.
-        
-        Args:
-            offset (OffsetQuery): Number of instructions to skip (for pagination).
-            limit (LimitQuery): Maximum number of instructions to return.
-            
-        Returns:
-            List[Instruction]: List of instructions.
-        """
+        """Return a page of instructions from all recipes."""
         return self.crud.read_instructions(offset, limit)
 
     def get_instruction(self, instruction_id: uuid.UUID) -> Instruction:
-        """Retrieve a specific instruction by ID.
-        
-        Args:
-            instruction_id (UUID): The unique identifier of the instruction to retrieve.
-            
-        Returns:
-            Instruction: The instruction information.
+        """Return an instruction by ID.
+
+        Raises:
+            InstructionNotFoundError: If no instruction has this ID.
         """
         instruction = self.crud.read_instruction(instruction_id)
         if not instruction:
@@ -106,20 +63,17 @@ class InstructionService:
         return instruction
 
     def update_instruction(self, instruction_id: uuid.UUID, instruction: InstructionUpdate) -> Instruction:
-        """Update a specific instruction's information.
-
-        This endpoint allows partial updates to an instruction's data, only modifying
-        the fields that are provided in the update request.
+        """Partially update an instruction and commit.
 
         Args:
-            instruction_id (UUID): The unique identifier of the instruction to update.
-            instruction (InstructionUpdate): The fields to update and their new values.
+            instruction_id: ID of the instruction.
+            instruction: Fields to change.
 
         Returns:
-            Instruction: The updated instruction instance.
+            The updated instruction.
 
         Raises:
-            InstructionNotFoundError: If the instruction is not found.
+            InstructionNotFoundError: If no instruction has this ID.
         """
         db_instruction = self.crud.read_instruction(instruction_id)
         if not instruction:
@@ -130,20 +84,17 @@ class InstructionService:
         return self.crud.update_instruction(db_instruction, instruction_data)
     
     def pre_update_instruction(self, instruction_id: uuid.UUID, instruction: InstructionUpdate) -> Instruction:
-        """Update a specific instruction's information.
-
-        This endpoint allows partial updates to an instruction's data, only modifying
-        the fields that are provided in the update request.
+        """Partially update an instruction without committing.
 
         Args:
-            instruction_id (UUID): The unique identifier of the instruction to update.
-            instruction (InstructionUpdate): The fields to update and their new values.
+            instruction_id: ID of the instruction.
+            instruction: Fields to change.
 
         Returns:
-            Instruction: The updated instruction instance.
+            The updated instruction.
 
         Raises:
-            InstructionNotFoundError: If the instruction is not found.
+            InstructionNotFoundError: If no instruction has this ID.
         """
         db_instruction = self.crud.read_instruction(instruction_id)
         if not instruction:
@@ -154,13 +105,10 @@ class InstructionService:
         return self.crud.pre_update_instruction(db_instruction, instruction_data)
 
     def delete_instruction(self, instruction_id: uuid.UUID) -> dict:
-        """Delete an instruction.
-
-        Args:
-            instruction_id (UUID): The unique identifier of the instruction to delete.
+        """Delete an instruction and commit.
 
         Raises:
-            InstructionNotFoundError: If the instruction is not found.
+            InstructionNotFoundError: If no instruction has this ID.
         """
         db_instruction = self.crud.read_instruction(instruction_id)
         if not db_instruction:
@@ -170,13 +118,10 @@ class InstructionService:
         return {"ok": True}
     
     def pre_delete_instruction(self, instruction_id: uuid.UUID) -> dict:
-        """Delete an instruction.
-
-        Args:
-            instruction_id (UUID): The unique identifier of the instruction to delete.
+        """Delete an instruction without committing.
 
         Raises:
-            InstructionNotFoundError: If the instruction is not found.
+            InstructionNotFoundError: If no instruction has this ID.
         """
         db_instruction = self.crud.read_instruction(instruction_id)
         if not db_instruction:
@@ -190,7 +135,12 @@ class InstructionService:
             recipe_id: uuid.UUID,
             instructions: list[NewInstructionCreate]
     ) -> None:
-        """Create all instructions for a new recipe"""
+        """Create the steps of a new recipe. Does not commit.
+
+        Args:
+            recipe_id: ID of the new recipe.
+            instructions: Steps from the `NewRecipe` body.
+        """
         for instruction in instructions:
             self.pre_create_instruction(
                 InstructionCreate(
@@ -205,7 +155,15 @@ class InstructionService:
             db_recipe: Recipe,
             instructions: list[PatchInstruction]
     ) -> None:
-        """Update instructions for existing recipe (delete removed, update/create others)."""
+        """Make the recipe's steps match the payload. Does not commit.
+
+        Steps whose ID is missing from the payload are deleted, steps with an ID
+        are updated, and `new` steps are created.
+
+        Args:
+            db_recipe: Recipe being edited.
+            instructions: Full list of steps from the `PatchRecipe` body.
+        """
         new_instruction_ids = {
             instruction.id
             for instruction in instructions

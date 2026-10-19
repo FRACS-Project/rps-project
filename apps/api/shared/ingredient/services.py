@@ -1,22 +1,4 @@
-##############################################################################################################
-#
-# Ingredient Service Layer - Business Logic and Validation
-#
-# This module contains the service layer for Ingredient management.
-# Services handle all business logic, validation, and coordinate between routes and CRUD.
-#
-# Architecture:
-#   - Receives requests from routes (HTTP layer)
-#   - Validates business rules (duplicates, existence)
-#   - Coordinates CRUD operations (database layer)
-#   - Handles error conditions with domain-specific exceptions
-#
-# Key Responsibilities:
-#   - Ingredient creation with duplicate name checking
-#   - Ingredient retrieval and pagination
-#   - Ingredient updates and deletion with existence validation
-#
-##############################################################################################################
+"""Ingredient service: shared ingredient list with unique names."""
 
 import uuid
 from sqlmodel import Session
@@ -38,32 +20,22 @@ from ...utils import LimitQuery, OffsetQuery
 
 
 class IngredientService:
-    """Service layer for Ingredient management.
-
-    Handles all business logic related to Ingredients including creation, validation,
-    and lifecycle operations. Coordinates between HTTP routes and database CRUD.
-    """
+    """Business logic for ingredients."""
 
     def __init__(self, db: Session):
-        """Initialize IngredientService with database session.
+        """Initialize with a database session.
 
         Args:
-            db (Session): Database session for executing queries via CRUD layer.
+            db: Database session.
         """
         self.db = db
         self.crud = IngredientCrud(self.db)
 
     def create_ingredient(self, ingredient: IngredientCreate) -> Ingredient:
-        """Create a new Ingredient with duplicate name validation.
-
-        Args:
-            ingredient (IngredientCreate): The ingredient data to create.
-
-        Returns:
-            Ingredient: The newly created ingredient.
+        """Create an ingredient and commit.
 
         Raises:
-            DuplicateIngredientNameError: If Ingredient name already exists.
+            DuplicateIngredientNameError: If an ingredient already has this name.
         """
         if self.crud.get_ingredient_by_name(ingredient.name):
             raise DuplicateIngredientNameError()
@@ -71,16 +43,10 @@ class IngredientService:
         return self.crud.create_ingredient(ingredient)
     
     def pre_create_ingredient(self, ingredient: IngredientCreate) -> Ingredient:
-        """Create a new Ingredient with duplicate name validation.
-
-        Args:
-            ingredient (IngredientCreate): The ingredient data to create.
-
-        Returns:
-            Ingredient: The newly created ingredient.
+        """Create an ingredient without committing. Used when saving a recipe.
 
         Raises:
-            DuplicateIngredientNameError: If Ingredient name already exists.
+            DuplicateIngredientNameError: If an ingredient already has this name.
         """
         if self.crud.get_ingredient_by_name(ingredient.name):
             raise DuplicateIngredientNameError()
@@ -88,28 +54,14 @@ class IngredientService:
         return self.crud.pre_create_ingredient(ingredient)
 
     def get_ingredients(self, offset: OffsetQuery = 0, limit: LimitQuery = 100) -> list[Ingredient]:
-        """Retrieve a paginated list of Ingredients.
-
-        Args:
-            offset (int): Number of ingredients to skip (for pagination).
-            limit (int): Maximum number of ingredients to return.
-
-        Returns:
-            List[Ingredient]: List of ingredients.
-        """
+        """Return a page of ingredients."""
         return self.crud.read_ingredients(offset, limit)
 
     def get_ingredient(self, ingredient_id: uuid.UUID) -> Ingredient:
-        """Retrieve a specific Ingredient by ID.
-
-        Args:
-            ingredient_id (uuid.UUID): The unique identifier of the ingredient.
-
-        Returns:
-            Ingredient: The found ingredient instance.
+        """Return an ingredient by ID.
 
         Raises:
-            IngredientNotFoundError: If the Ingredient is not found.
+            IngredientNotFoundError: If no ingredient has this ID.
         """
         ingredient = self.crud.read_ingredient(ingredient_id)
         if not ingredient:
@@ -118,17 +70,17 @@ class IngredientService:
         return ingredient
 
     def update_ingredient(self, ingredient_id: uuid.UUID, ingredient: IngredientUpdate) -> Ingredient:
-        """Update an existing Ingredient's information.
+        """Partially update an ingredient. Does not re-check name uniqueness.
 
         Args:
-            ingredient_id (uuid.UUID): The unique identifier of the ingredient.
-            ingredient (IngredientUpdate): The new ingredient data to apply.
+            ingredient_id: ID of the ingredient.
+            ingredient: Fields to change.
 
         Returns:
-            Ingredient: The updated ingredient instance.
+            The updated ingredient.
 
         Raises:
-            IngredientNotFoundError: If the Ingredient is not found.
+            IngredientNotFoundError: If no ingredient has this ID.
         """
         db_ingredient = self.crud.read_ingredient(ingredient_id)
         if not db_ingredient:
@@ -139,13 +91,13 @@ class IngredientService:
         return self.crud.update_ingredient(db_ingredient, ingredient_data)
 
     def delete_ingredient(self, ingredient_id: uuid.UUID) -> dict:
-        """Delete an ingredient by ID.
+        """Delete an ingredient.
 
-        Args:
-            ingredient_id (uuid.UUID): The unique identifier of the ingredient.
+        Returns:
+            `{"ok": True}`.
 
         Raises:
-            IngredientNotFoundError: If the Ingredient is not found.
+            IngredientNotFoundError: If no ingredient has this ID.
         """
         db_ingredient = self.crud.read_ingredient(ingredient_id)
         if not db_ingredient:

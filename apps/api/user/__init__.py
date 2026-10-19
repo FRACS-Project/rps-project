@@ -1,4 +1,5 @@
-"""Authentication module exports."""
+"""User module: model, base schema and exceptions. Services and routers are imported directly to avoid circular imports."""
+
 from .models import User, UserBase
 from .exceptions import (
     DuplicateEmailError,
@@ -7,7 +8,6 @@ from .exceptions import (
     UserNotFoundError,
     UserDisabledError
 )
-# Services and routes are imported directly to avoid circular imports
 
 __all__ = [
     "User",

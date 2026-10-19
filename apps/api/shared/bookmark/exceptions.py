@@ -1,15 +1,9 @@
-##############################################################################################################
-#
-# Recipe Exceptions
-#
-# HTTPException subclasses used by the recipe service layer for consistent API errors.
-#
-##############################################################################################################
+"""HTTP errors raised by the bookmark service."""
 
 from fastapi import HTTPException, status
 
 class BookmarkNotFoundError(HTTPException):
-    """Raised when a recipe lookup fails."""
+    """404: the user has not bookmarked this recipe."""
     def __init__(self):
         super().__init__(
             status_code=status.HTTP_404_NOT_FOUND,

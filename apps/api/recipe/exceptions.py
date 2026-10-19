@@ -1,15 +1,9 @@
-##############################################################################################################
-#
-# Recipe Exceptions
-#
-# HTTPException subclasses used by the recipe service layer for consistent API errors.
-#
-##############################################################################################################
+"""HTTP errors raised by the recipe service."""
 
 from fastapi import HTTPException, status
 
 class DuplicateRecipeNameError(HTTPException):
-    """Raised when a recipe name is already in use."""
+    """409: the user already has a recipe with this name."""
     def __init__(self):
         super().__init__(
             status_code=status.HTTP_409_CONFLICT,
@@ -17,7 +11,7 @@ class DuplicateRecipeNameError(HTTPException):
         )
 
 class RecipeNotFoundError(HTTPException):
-    """Raised when a recipe lookup fails."""
+    """404: no recipe has this ID."""
     def __init__(self):
         super().__init__(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -25,7 +19,7 @@ class RecipeNotFoundError(HTTPException):
         )
 
 class NoTagInRecipeError(HTTPException):
-    """Raised when there is no tag in a recipe."""
+    """404: the payload has no tags, or a tag has neither an ID nor a new name."""
     def __init__(self):
         super().__init__(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -34,7 +28,7 @@ class NoTagInRecipeError(HTTPException):
 
 
 class NoIngredientInRecipeError(HTTPException):
-    """Raised when there is no ingredient in a recipe."""
+    """404: the payload has no usable ingredient (none with an ID or a name)."""
     def __init__(self):
         super().__init__(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -43,7 +37,7 @@ class NoIngredientInRecipeError(HTTPException):
 
 
 class NoInstructionInRecipeError(HTTPException):
-    """Raised when there are no instructions in a recipe."""
+    """404: the payload has no instructions, or one has neither an ID nor a title and details."""
     def __init__(self):
         super().__init__(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -51,7 +45,7 @@ class NoInstructionInRecipeError(HTTPException):
         )
 
 class NoImageInRecipeError(HTTPException):
-    """Raised when there are no instructions in a recipe."""
+    """404: an image in the payload has neither an ID nor new base64 data."""
     def __init__(self):
         super().__init__(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -60,7 +54,7 @@ class NoImageInRecipeError(HTTPException):
 
 
 class EmptyRecipeUpdateError(HTTPException):
-    """Raised when no fields are provided for a recipe update."""
+    """400: the update body has no fields set."""
     def __init__(self):
         super().__init__(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -68,7 +62,7 @@ class EmptyRecipeUpdateError(HTTPException):
         )
 
 class NotUserRecipeError(HTTPException):
-    """Raised when the user id is not the same as the owner id of the recipe"""
+    """403: the recipe belongs to another user."""
     def __init__(self):
         super().__init__(
             status_code=status.HTTP_403_FORBIDDEN,

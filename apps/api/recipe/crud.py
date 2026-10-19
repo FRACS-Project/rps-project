@@ -1,11 +1,8 @@
-##############################################################################################################
-#
-# CRUD operations for managing recipes in the application.
-#
-# This module provides functions to create, read, update, and delete recipe entities
-# in the database. It handles all database interactions related to recipes.
-#
-##############################################################################################################
+"""Database access for recipes. No validation; the service layer handles that.
+
+`pre_*` methods only flush, so the service can create a recipe and its
+related rows in one transaction and commit once with `save()`.
+"""
 
 import uuid
 from sqlmodel import Session, select
@@ -15,90 +12,55 @@ from .schemas import RecipeCreate
 
 
 class RecipeCrud:
+    """Queries and writes for the recipe table."""
 
     def __init__(self, db: Session):
-        """Initialize RecipeCrud with database session.
+        """Initialize with a database session.
 
         Args:
-            db (Session): Database session for executing queries via CRUD layer.
+            db: Database session.
         """
         self.db = db
 
     def read_recipe(self, recipe_id: uuid.UUID) -> Recipe | None:
-        """Retrieve a specific recipe by its ID.
-
-        Args:
-            recipe_id (uuid.UUID): The unique identifier of the recipe.
-
-        Returns:
-            Recipe | None: The found recipe instance or None if not found.
-        """
+        """Return the recipe with this ID, or None."""
         return self.db.get(Recipe, recipe_id)
 
     def read_recipe_by_name(self, name: str):
-        """Retrieve the recipe that has the exact same name.
-
-        Args:
-            name (str): The name of the recipe to search for.
-
-        Returns:
-            Recipe | None: The found recipe instance or None if not found.
-        """
+        """Return a recipe with exactly this name, from any user, or None."""
         query = select(Recipe).where(Recipe.name == name)
         return self.db.exec(query).first()
     
     def read_recipe_by_name_by_user(self, name: str, user_id: uuid.UUID):
+        """Return the user's recipe with exactly this name, or None."""
         query = select(Recipe).where(Recipe.name == name, Recipe.owner_id == user_id)
         return self.db.exec(query).first()
 
     def read_recipes(self, offset: int, limit: int) -> list[Recipe]:
-        """Retrieve a paginated list of recipes.
-
-        Args:
-            offset (int): Number of records to skip.
-            limit (int): Maximum number of records to return.
-
-        Returns:
-            list[Recipe]: A list of recipe instances.
-        """
+        """Return a page of recipes from all users."""
         return self.db.exec(select(Recipe).offset(offset).limit(limit)).all()
 
     def read_recipes_by_name(self, offset: int, limit: int, name: str) -> Recipe | None:
-        """Retrieve all recipe that contains the name.
-
-        Args:
-            name (str): The name of the recipe to search for.
-
-        Returns:
-            Recipe | None: The found recipe instance or None if not found.
-        """
+        """Return a page of recipes whose name contains `name` (case-insensitive)."""
         query = select(Recipe).where(Recipe.name.ilike(
             f"%{name}%")).offset(offset).limit(limit)
         return self.db.exec(query).all()
 
     def read_recipes_by_user(self, offset: int, limit: int, user_id: uuid.UUID) -> list[Recipe]:
-        """Retrieve recipes belonging to a specific user.
-
-        Args:
-            offset (int): Number of records to skip.
-            limit (int): Maximum number of records to return.
-            user_id (uuid.UUID): The user's unique identifier.
-
-        Returns:
-            list[Recipe]: A list of recipe instances for the specified user.
-        """
+        """Return a page of the user's recipes."""
         query = select(Recipe).where(Recipe.owner_id ==
                                      user_id).offset(offset).limit(limit)
         return self.db.exec(query).all()
 
     def create_recipe(self, recipe: RecipeCreate, mod: str) -> Recipe:
-        """Create a new recipe in the database.
+        """Insert a recipe and commit.
 
         Args:
-            recipe (RecipeCreate): The recipe data to create.
+            recipe: Recipe fields.
+            mod: Unused.
 
         Returns:
-            Recipe: The newly created recipe instance.
+            The created recipe.
         """
         db_recipe = Recipe.model_validate(recipe)
         self.db.add(db_recipe)
@@ -107,13 +69,13 @@ class RecipeCrud:
         return db_recipe
 
     def pre_create_recipe(self, recipe: RecipeCreate) -> Recipe:
-        """Create a new recipe in the database.
+        """Add a recipe and flush without committing, so its ID is available.
 
         Args:
-            recipe (RecipeCreate): The recipe data to create.
+            recipe: Recipe fields.
 
         Returns:
-            Recipe: The newly created recipe instance.
+            The pending recipe.
         """
         db_recipe = Recipe.model_validate(recipe)
         self.db.add(db_recipe)
@@ -121,14 +83,14 @@ class RecipeCrud:
         return db_recipe
 
     def update_recipe(self, db_recipe: Recipe, recipe: dict) -> Recipe:
-        """Update an existing recipe's information.
+        """Apply the given fields to a recipe and commit.
 
         Args:
-            db_recipe (Recipe): The existing recipe instance to update.
-            recipe (dict): The new recipe data to apply.
+            db_recipe: Recipe to update.
+            recipe: Fields to change.
 
         Returns:
-            Recipe: The updated recipe instance.
+            The updated recipe.
         """
         db_recipe.sqlmodel_update(recipe)
         self.db.add(db_recipe)
@@ -137,41 +99,29 @@ class RecipeCrud:
         return db_recipe
 
     def delete_recipe(self, db_recipe: Recipe) -> dict:
-        """Delete a recipe from the database.
-
-        Args:
-            db_recipe (Recipe): The recipe instance to delete.
-
-        Returns:
-            dict: Confirmation message.
-        """
+        """Delete a recipe and commit. Its ingredient lines, instructions and images are deleted too."""
         self.db.delete(db_recipe)
         self.db.commit()
         return {"ok": True}
 
     def save_recipe(self, db_recipe: Recipe) -> Recipe:
-        """Save changes to an existing recipe instance.
-
-        Args:
-            db_recipe (Recipe): The recipe instance to save.
-
-        Returns:
-            Recipe: The saved recipe instance with refreshed state.
-        """
+        """Add the recipe to the session, commit, and return it refreshed."""
         self.db.add(db_recipe)
         self.db.commit()
         self.db.refresh(db_recipe)
         return db_recipe
     
     def refresh_recipe(self, db_recipe: Recipe) -> Recipe:
+        """Reload the recipe and its relationships from the database."""
         self.db.refresh(db_recipe)
         return db_recipe
     
     def save(self) -> None:
-        """Commit current transaction."""
+        """Commit the current transaction."""
         self.db.commit()
 
     def rollback(self) -> None:
+        """Roll back the current transaction."""
         self.db.rollback()
 
     
