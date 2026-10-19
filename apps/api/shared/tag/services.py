@@ -30,9 +30,12 @@ from . import (
 from .schemas import (
     TagCreate,
     TagUpdate,
+    TagRef
 )
 
 from .crud import TagCrud
+
+from ...recipe import Recipe
 
 from ...utils import LimitQuery, OffsetQuery
 
@@ -171,3 +174,38 @@ class TagService:
 
         self.crud.delete_tag(db_tag)
         return {"ok": True}
+
+    def sync_tags_on_create(self, recipe: Recipe, tags: list[TagRef]):
+        """Create all tags for a new recipe"""
+        for tag in tags:
+            if tag.new:
+                db_tag = self.pre_create_tag(
+                    TagCreate(name=tag.name))
+            elif tag.id:
+                db_tag = self.get_tag(tag.id)
+            recipe.tags.append(db_tag)
+
+    def sync_tags_on_update(self, db_recipe: Recipe, tags: list[TagRef]) -> None:
+        """Update tags for existing recipe (delete removed, update/create others)."""
+        desired_tag_ids: set[uuid.UUID] = set()
+
+        for tag in tags:
+            if tag.new:
+                created_tag = self.pre_create_tag(
+                    TagCreate(name=tag.name))
+                desired_tag_ids.add(created_tag.id)
+            elif tag.id:
+                desired_tag_ids.add(tag.id)
+
+        current_tag_ids = {tag.id for tag in db_recipe.tags}
+        tag_ids_to_remove = current_tag_ids - desired_tag_ids
+        tag_ids_to_add = desired_tag_ids - current_tag_ids
+
+        db_recipe.tags = [
+            tag
+            for tag in db_recipe.tags
+            if tag.id not in tag_ids_to_remove
+        ]
+
+        for tag_id in tag_ids_to_add:
+            db_recipe.tags.append(self.get_tag(tag_id))
