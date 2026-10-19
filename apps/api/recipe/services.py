@@ -60,7 +60,7 @@ from ..shared.ingredient.services import IngredientService
 from ..shared.tag.schemas import TagCreate, TagRef
 from ..shared.tag.services import TagService
 
-from ..shared.image.schemas import ImagePublic
+from ..shared.image.schemas import ImagePublic, ImagePayload
 from ..shared.image.services import ImageService
 
 
@@ -241,8 +241,6 @@ class RecipeService:
         created_recipe = self.crud.pre_create_recipe(recipe_data)
         created_recipe.owner_id = user_id
 
-        recipe.instructions
-
         # Create ingredient (if needed) and link ingredient to recipe
         self._sync_ingredients_on_create(created_recipe, recipe.ingredients)
 
@@ -255,9 +253,17 @@ class RecipeService:
         # Add Image to the recipe
         if recipe.images:
             self.image_service.sync_recipe_images_on_create(
-                created_recipe.id, recipe.images, user_id)
+                created_recipe.id,
+                recipe.images,
+                user_id
+            )
 
         self.crud.save()
+
+        if recipe.images:
+            self.image_service.store_pending_recipe_images(recipe.images, created_recipe.id)
+
+        self.image_service.delete_pending_images(created_recipe.id)
 
         return self.crud.refresh_recipe(created_recipe)
 
@@ -294,7 +300,7 @@ class RecipeService:
         self._validate_images(recipe.images)
 
         # Update recipe
-        if (db_recipe.name != recipe.name) and self.crud.read_recipe_by_name(recipe.name):
+        if (db_recipe.name != recipe.name) and self.crud.read_recipe_by_name_by_user(recipe.name,user_id):
             raise DuplicateRecipeNameError()
 
         db_recipe.name = recipe.name
@@ -317,9 +323,15 @@ class RecipeService:
         self._sync_instructions_on_update(
             db_recipe, recipe.instructions, recipe_id)
 
-        self.image_service.sync_recipe_images_on_update(db_recipe, recipe.images, recipe_id)
+        if recipe.images is not None:
+            self.image_service.sync_recipe_images_on_update(db_recipe, recipe.images, recipe_id)
 
         self.crud.save()
+        
+        if recipe.images:
+            self.image_service.store_pending_recipe_images(recipe.images, recipe_id)
+        
+        self.image_service.delete_pending_images(recipe_id)
 
         return self.crud.refresh_recipe(db_recipe)
 
@@ -359,12 +371,12 @@ class RecipeService:
                 instruction.id or (instruction.title and instruction.details) for instruction in instructions):
             raise NoInstructionInRecipeError()
 
-    def _validate_images(self, images: list) -> None:
+    def _validate_images(self, images: list[ImagePayload]) -> None:
         if not images:
             return
 
         if not all(
-                (image.id and image.data_base64) or image.data_base64 for image in images):
+                (image.new and image.data_base64) or image.id for image in images):
             raise NoImageInRecipeError()
 
         self.image_service.magic_validation(images)
@@ -401,7 +413,7 @@ class RecipeService:
     def _sync_instructions_on_create(self, recipe: Recipe, instructions: list[NewInstructionCreate]) -> None:
         """Create all instructions for a new recipe"""
         for instruction in instructions:
-            self.instruction_service.create_instruction(
+            self.instruction_service.pre_create_instruction(
                 InstructionCreate(
                     title=instruction.title,
                     details=instruction.details,

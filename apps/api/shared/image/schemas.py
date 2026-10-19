@@ -30,5 +30,5 @@ class ImageUpdate(ImageBase):
 
 class ImagePayload(ImageBase):
     id: uuid.UUID | None = None
-    data_base64: str
+    data_base64: str | None = None
     new: bool | None = False

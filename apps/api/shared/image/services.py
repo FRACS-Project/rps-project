@@ -21,6 +21,7 @@
 import uuid
 import base64
 from pathlib import Path
+import logging
 
 import magic
 import base64
@@ -66,55 +67,20 @@ class ImageService:
         """
         self.db = db
         self.crud = ImageCrud(self.db)
+        self.logger = logging.getLogger(__name__)
 
     def create_image(self, image: ImageCreate) -> Image:
-        """Create a new Image with duplicate name validation.
-
-        Args:
-            image (ImageCreate): The image data to create.
-
-        Returns:
-            Image: The newly created image.
-        """
 
         return self.crud.pre_create_image(image)
 
     def create_recipe_image_by_user(self, image: ImageCreate) -> Image:
-        """Create a new Image with duplicate name validation.
-
-        Args:
-            image (ImageCreate): The image data to create.
-
-        Returns:
-            Image: The newly created image.
-        """
 
         return self.crud.pre_create_image(image)
 
     def get_images(self, offset: OffsetQuery = 0, limit: LimitQuery = 100) -> list[Image]:
-        """Retrieve a paginated list of Images.
-
-        Args:
-            offset (int): Number of images to skip (for pagination).
-            limit (int): Maximum number of images to return.
-
-        Returns:
-            List[Image]: List of images.
-        """
         return self.crud.read_images(offset, limit)
 
     def get_image(self, image_id: uuid.UUID) -> Image:
-        """Retrieve a specific Image by ID.
-
-        Args:
-            image_id (uuid.UUID): The unique identifier of the image.
-
-        Returns:
-            Image: The found image instance.
-
-        Raises:
-            ImageNotFoundError: If the Image is not found.
-        """
         image = self.crud.read_image(image_id)
         if not image:
             raise ImageNotFoundError()
@@ -122,23 +88,10 @@ class ImageService:
         return image
 
     def get_images_by_recipe(self, recipe_id: uuid.UUID) -> list[ImagePublic]:
-        """Retrieve the list of images from a recipe.
-
-        Args:
-            name (str): The name of the image.
-
-        Returns:
-            List[Image]: The found image instance.
-
-        Raises:
-            ImageNotFoundError: If the Image is not found.
-        """
-        images = self.crud.get_images_by_recipe(recipe_id)
+        db_images = self.crud.get_images_by_recipe_by_status(recipe_id, ImageStatus.ACTIVE)
         image_pub = []
 
-        for image in images:
-            if not image:
-                raise ImageNotFoundError()
+        for image in db_images:
             image_bytes = Path(UPLOADS_DIR/str(image.id)).read_bytes()
             image_pub.append(
                 ImagePublic(
@@ -150,42 +103,18 @@ class ImageService:
         return image_pub
 
     def get_primary_image_by_recipe(self, recipe_id: uuid.UUID) -> ImagePublic:
-        """Retrieve the list of images from a recipe.
+        db_images = self.crud.get_images_by_recipe_by_status(recipe_id, ImageStatus.ACTIVE)
 
-        Args:
-            name (str): The name of the image.
-
-        Returns:
-            List[Image]: The found image instance.
-
-        Raises:
-            ImageNotFoundError: If the Image is not found.
-        """
-        images = self.crud.get_images_by_recipe(recipe_id)
-
-        for image in images:
-            if not image:
-                raise ImageNotFoundError()
+        for image in db_images:
             if image.is_primary:
                 image_bytes = Path(UPLOADS_DIR/str(image.id)).read_bytes()
                 return ImagePublic(
                     id=image.id,
                     data_base64=base64.b64encode(image_bytes).decode("utf-8")
                 )
+        raise ImageNotFoundError()
 
     def update_image(self, image_id: uuid.UUID, image: ImageUpdate) -> Image:
-        """Update an existing Image's information.
-
-        Args:
-            image_id (uuid.UUID): The unique identifier of the image.
-            image (ImageUpdate): The new image data to apply.
-
-        Returns:
-            Image: The updated image instance.
-
-        Raises:
-            ImageNotFoundError: If the Image is not found.
-        """
         db_image = self.crud.read_image(image_id)
         if not db_image:
             raise ImageNotFoundError()
@@ -196,7 +125,7 @@ class ImageService:
 
     def pre_update_image(self, image_id: uuid.UUID, image: ImageUpdate) -> Image:
         db_image = self.crud.read_image(image_id)
-        if not image:
+        if not db_image:
             raise ImageNotFoundError()
 
         image_data = image.model_dump(exclude_unset=True)
@@ -220,14 +149,6 @@ class ImageService:
         return {"ok": True}
 
     def pre_delete_image(self, image_id: uuid.UUID) -> dict:
-        """Delete an image.
-
-        Args:
-            image_id (UUID): The unique identifier of the image to delete.
-
-        Raises:
-            imageNotFoundError: If the image is not found.
-        """
         db_image = self.crud.read_image(image_id)
         if not db_image:
             raise ImageNotFoundError()
@@ -235,11 +156,11 @@ class ImageService:
         self.crud.pre_delete_image(db_image)
         return {"ok": True}
 
-    def magic_validation(self, images: list[ImageCreate] | ImageCreate):
+    def magic_validation(self, images: list[ImagePayload] | ImagePayload):
         """Validate that the image has the proper type (image/jpeg, image/png, image/webp)
 
         Args:
-            images (list[ImageCreate] | ImageCreate): Depends of the payload that was send (for recipe multiples images but for the profil picture it's only 1)
+            images (list[ImagePayload] | ImagePayload): Depends of the payload that was send (for recipe multiples images but for the profil picture it's only 1)
 
         Raises:
             WrongImageType: Raise en exception if the type is not include in the list
@@ -248,54 +169,40 @@ class ImageService:
         items = images if isinstance(images, list) else [images]
 
         for image in items:
-            try:
-                raw = base64.b64decode(image.data_base64, validate=True)
-                mime = magic.from_buffer(raw, mime=True)
-            except Exception:
-                raise WrongImageType()
-            if mime not in allowed:
-                raise WrongImageType()
+            if image.new:
+                try:
+                    raw = base64.b64decode(image.data_base64, validate=True)
+                    mime = magic.from_buffer(raw, mime=True)
+                except Exception:
+                    raise WrongImageType()
+                if mime not in allowed:
+                    raise WrongImageType()
 
     def sync_recipe_images_on_create(
-        self,
-        recipe_id: uuid.UUID,
-        images: list[ImagePayload],
-        user_id: uuid.UUID
+            self,
+            recipe_id: uuid.UUID,
+            images: list[ImagePayload],
+            user_id: uuid.UUID
     ) -> None:
         """Add the images for a new recipe"""
 
-        for i, image in enumerate(images):
-            if i == 0:
-                image_created = self.crud.pre_create_image(
-                    ImageCreate(
-                        status=ImageStatus.PENDING,
-                        is_primary=True,
-                        owner_id=user_id,
-                        recipe_id=recipe_id
-                    )
+        for image in images:
+            image.id = self.crud.pre_create_image(
+                ImageCreate(
+                    status=ImageStatus.PENDING,
+                    owner_id=user_id,
+                    recipe_id=recipe_id
                 )
-            else:
-                image_created = self.crud.pre_create_image(
-                    ImageCreate(
-                        status=ImageStatus.PENDING,
-                        owner_id=user_id,
-                        recipe_id=recipe_id
-                    )
-                )
-            self._store_image(image.data_base64, image_created.id)
-            self.update_image(
-                image_created.id,
-                ImageUpdate(status=ImageStatus.ACTIVE)
-            )
+            ).id
 
     def sync_recipe_images_on_update(
-        self,
-        db_recipe: Recipe,
-        images: list[ImagePayload],
-        recipe_id: uuid.UUID
-    ):
+            self,
+            db_recipe: Recipe,
+            images: list[ImagePayload],
+            recipe_id: uuid.UUID
+    ) -> None:
         # Set ids for the images that are already in the recipe
-        old_img_ids = {
+        db_img_ids = {
             image.id
             for image in images
             if image.id
@@ -305,49 +212,60 @@ class ImageService:
         images_to_delete = {
             image.id
             for image in db_recipe.images
-            if image.id not in old_img_ids
+            if image.id not in db_img_ids
         }
 
         for id in images_to_delete:
-            self.pre_delete_image(id)
-            Path(UPLOADS_DIR/str(id)).unlink(missing_ok=True)
+            self.pre_update_image(
+                id,
+                ImageUpdate(status=ImageStatus.PENDING)
+            )
 
-        db_recipe.images = [
-            img
-            for img in db_recipe.images
-            if img.id not in images_to_delete
-        ]
-
-        for i, image in enumerate(images):
+        for image in images:
             if image.new:
-                image_created = self.crud.pre_create_image(
+                image.id = self.crud.pre_create_image(
                     ImageCreate(
                         status=ImageStatus.PENDING,
                         owner_id=db_recipe.owner_id,
                         recipe_id=recipe_id
                     )
-                )
-                self._store_image(image.data_base64, image_created.id)
-                self.update_image(
-                    image_created.id,
-                    ImageUpdate(status=ImageStatus.ACTIVE)
-                )
+                ).id
 
-        recipe_images = self.get_images_by_recipe(recipe_id)
-        for i, image in enumerate(recipe_images):
+    def store_pending_recipe_images(self, images: list[ImagePayload], recipe_id: uuid.UUID):
+   
+        for image in images:
+            if image.new:
+                try:
+                    self._store_image(image.data_base64, image.id)
+                except OSError:
+                    self.logger.exception("Failed to store image %s", image.id)
+                else:    
+                    self.update_image(image.id, ImageUpdate(status=ImageStatus.ACTIVE))
+
+        self._make_primary_image(recipe_id)
+
+    def delete_pending_images(self, recipe_id: uuid.UUID):
+        db_images = self.crud.get_images_by_recipe_by_status(recipe_id, ImageStatus.PENDING)
+        for image in db_images:
+            try:
+                Path(UPLOADS_DIR/str(image.id)).unlink(missing_ok=True)
+            except OSError:
+                self.logger.exception("Failed to delete image %s", image.id)
+            else:
+                self.crud.delete_image(image)
+
+    def _make_primary_image(self, recipe_id):
+        db_images = self.crud.get_images_by_recipe_by_status(recipe_id, ImageStatus.ACTIVE)
+        for i, image in enumerate(db_images):
             if i == 0:
                 self.update_image(
                     image.id,
-                    ImageUpdate(
-                        is_primary=True
-                    )
+                    ImageUpdate(is_primary=True)
                 )
             else:
                 self.update_image(
                     image.id,
-                    ImageUpdate(
-                        is_primary=False
-                    )
+                    ImageUpdate(is_primary=False)
                 )
 
     def _store_image(self, image_base64: str, image_id: uuid.UUID):

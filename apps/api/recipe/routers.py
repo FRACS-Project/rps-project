@@ -47,7 +47,7 @@ router = APIRouter(
 
 
 @router.post("/me", response_model=RecipePublicWithAll)
-def create_new_recipe(
+def create_my_recipe(
         recipe: NewRecipe,
         session: Session = Depends(get_session),
         current_user: UserPublic = Depends(get_current_active_user)
@@ -111,7 +111,7 @@ def get_my_recipe(
 
 
 @router.patch("/me/{recipe_id}", response_model=RecipePublicWithAll)
-def update_recipe(
+def update_my_recipe(
         recipe_id: uuid.UUID,
         recipe: PatchRecipe,
         session: Session = Depends(get_session),
@@ -134,7 +134,7 @@ def update_recipe(
 
 
 @router.delete("/me/{recipe_id}")
-def delete_recipe(
+def delete_my_recipe(
         recipe_id: uuid.UUID,
         session: Session = Depends(get_session),
         current_user: UserPublic = Depends(get_current_active_user)
