@@ -19,7 +19,6 @@
 ##############################################################################################################
 
 import uuid
-from pathlib import Path
 from sqlmodel import Session
 
 from . import (
@@ -43,21 +42,10 @@ from .schemas import (
 
 from .crud import RecipeCrud
 
-from .components.recipe_ingredient.schemas import (
-    RecipeIngredientCreate,
-    RecipeIngredientUpdate,
-    PatchRecipeIngredient,
-    NewRecipeIngredient
-)
 from .components.recipe_ingredient.services import RecipeIngredientService
 
-from .components.instruction.schemas import InstructionCreate, InstructionUpdate, NewInstructionCreate, PatchInstruction
 from .components.instruction.services import InstructionService
 
-from ..shared.ingredient.schemas import IngredientCreate
-from ..shared.ingredient.services import IngredientService
-
-from ..shared.tag.schemas import TagCreate, TagRef
 from ..shared.tag.services import TagService
 
 from ..shared.image.schemas import ImagePublic, ImagePayload
@@ -80,7 +68,6 @@ class RecipeService:
         """
         self.db = db
         self.crud = RecipeCrud(self.db)
-        self.ingredient_service = IngredientService(self.db)
         self.recipe_ingredient_service = RecipeIngredientService(self.db)
         self.instruction_service = InstructionService(self.db)
         self.image_service = ImageService(self.db)
@@ -143,8 +130,9 @@ class RecipeService:
         recipe = self.crud.read_recipes_by_user(offset, limit, user_id)
         return recipe
 
-    def get_recipe_by_user(self, recipe_id: uuid.UUID, user_id: uuid.UUID):
-        pass
+    def get_recipe_by_user(self, recipe_id: uuid.UUID, user_id: uuid.UUID) -> Recipe:
+        """Retrieve a recipe owned by the user."""
+        return self._get_owned_recipe(recipe_id, user_id)
 
     # ── Public: Commands ─────────────────────────────────────────────────────────────────────────────────────────────────
     def create_recipe(self, recipe: RecipeCreate) -> Recipe:
@@ -239,16 +227,18 @@ class RecipeService:
             owner_id=user_id
         )
         created_recipe = self.crud.pre_create_recipe(recipe_data)
-        created_recipe.owner_id = user_id
 
         # Create ingredient (if needed) and link ingredient to recipe
-        self._sync_ingredients_on_create(created_recipe, recipe.ingredients)
+        self.recipe_ingredient_service.sync_ingredients_on_create(
+            created_recipe.id,
+            recipe.ingredients
+        )
 
         # Create tag (if needed) and link tag to Recipe
-        self._sync_tags_on_create(created_recipe, recipe.tags)
+        self.tag_service.sync_tags_on_create(created_recipe, recipe.tags)
 
         # Add Instructions to Recipe
-        self._sync_instructions_on_create(created_recipe, recipe.instructions)
+        self.instruction_service.sync_instructions_on_create(created_recipe.id, recipe.instructions)
 
         # Add Image to the recipe
         if recipe.images:
@@ -263,7 +253,7 @@ class RecipeService:
         if recipe.images:
             self.image_service.store_pending_recipe_images(recipe.images, created_recipe.id)
 
-        self.image_service.delete_pending_images(created_recipe.id)
+        self.image_service.delete_pending_recipe_images(created_recipe.id)
 
         return self.crud.refresh_recipe(created_recipe)
 
@@ -288,11 +278,7 @@ class RecipeService:
         """
 
         # Get recipe
-        db_recipe = self.crud.read_recipe(recipe_id)
-        if not db_recipe:
-            raise RecipeNotFoundError()
-        elif not db_recipe.owner_id == user_id:
-            raise NotUserRecipeError()
+        db_recipe = self._get_owned_recipe(recipe_id, user_id)
 
         self._validate_ingredients(recipe.ingredients)
         self._validate_tags(recipe.tags)
@@ -300,7 +286,7 @@ class RecipeService:
         self._validate_images(recipe.images)
 
         # Update recipe
-        if (db_recipe.name != recipe.name) and self.crud.read_recipe_by_name_by_user(recipe.name,user_id):
+        if (db_recipe.name != recipe.name) and self.crud.read_recipe_by_name_by_user(recipe.name, user_id):
             raise DuplicateRecipeNameError()
 
         db_recipe.name = recipe.name
@@ -310,28 +296,35 @@ class RecipeService:
         db_recipe.base_serving = recipe.base_serving
 
         # Update recipe ingredients
-        self._sync_ingredients_on_update(
+        self.recipe_ingredient_service.sync_ingredients_on_update(
             db_recipe,
-            recipe.ingredients,
-            recipe_id
+            recipe.ingredients
         )
 
         # Update tags
-        self._sync_tags_on_update(db_recipe, recipe.tags)
+        self.tag_service.sync_tags_on_update(
+            db_recipe,
+            recipe.tags
+        )
 
         # Update instructions
-        self._sync_instructions_on_update(
-            db_recipe, recipe.instructions, recipe_id)
+        self.instruction_service.sync_instructions_on_update(
+            db_recipe,
+            recipe.instructions
+        )
 
         if recipe.images is not None:
-            self.image_service.sync_recipe_images_on_update(db_recipe, recipe.images, recipe_id)
+            self.image_service.sync_recipe_images_on_update(
+                db_recipe,
+                recipe.images
+            )
 
         self.crud.save()
         
         if recipe.images:
             self.image_service.store_pending_recipe_images(recipe.images, recipe_id)
         
-        self.image_service.delete_pending_images(recipe_id)
+        self.image_service.delete_pending_recipe_images(recipe_id)
 
         return self.crud.refresh_recipe(db_recipe)
 
@@ -345,11 +338,7 @@ class RecipeService:
         Raises:
             RecipeNotFoundError: If the recipe is not found.
         """
-        db_recipe = self.crud.read_recipe(recipe_id)
-        if not db_recipe:
-            raise RecipeNotFoundError()
-        elif not db_recipe.owner_id == user_id:
-            raise NotUserRecipeError()
+        db_recipe = self._get_owned_recipe(recipe_id, user_id)
 
         self.crud.delete_recipe(db_recipe)
         return {"ok": True}
@@ -363,7 +352,7 @@ class RecipeService:
 
     def _validate_tags(self, tags: list) -> None:
         """Validate that tags exist and are provided"""
-        if not tags or not all(tag.id or tag.name for tag in tags):
+        if not tags or not all(tag.id or (tag.new and tag.name) for tag in tags):
             raise NoTagInRecipeError()
 
     def _validate_instructions(self, instructions: list) -> None:
@@ -381,174 +370,12 @@ class RecipeService:
 
         self.image_service.magic_validation(images)
 
-    # ── Private: Creation ─────────────────────────────────────────────────────────────────────────────────────────────────
-    def _sync_ingredients_on_create(self, recipe: Recipe, ingredients: list[NewRecipeIngredient]) -> None:
-        """Create all ingredients for a new recipe."""
-        for ingredient in ingredients:
-            if ingredient.new:
-                ingredient_data = IngredientCreate(name=ingredient.name)
-                created_ing = self.ingredient_service.pre_create_ingredient(
-                    ingredient_data)
-                ingredient.ingredient_id = created_ing.id
-            # Create RecipeIngredient
-            self.recipe_ingredient_service.pre_create_recipe_ingredient(
-                RecipeIngredientCreate(
-                    quantity=ingredient.quantity,
-                    unit=ingredient.unit,
-                    ingredient_id=ingredient.ingredient_id,
-                    recipe_id=recipe.id
-                )
-            )
-
-    def _sync_tags_on_create(self, recipe: Recipe, tags: list[TagRef]):
-        """Create all tags for a new recipe"""
-        for tag in tags:
-            if tag.new:
-                tag_obj = self.tag_service.pre_create_tag(
-                    TagCreate(name=tag.name))
-            elif tag.id:
-                tag_obj = self.tag_service.get_tag(tag.id)
-            recipe.tags.append(tag_obj)
-
-    def _sync_instructions_on_create(self, recipe: Recipe, instructions: list[NewInstructionCreate]) -> None:
-        """Create all instructions for a new recipe"""
-        for instruction in instructions:
-            self.instruction_service.pre_create_instruction(
-                InstructionCreate(
-                    title=instruction.title,
-                    details=instruction.details,
-                    recipe_id=recipe.id
-                )
-            )
-
-    # ── Private: Update ─────────────────────────────────────────────────────────────────────────────────────────────────
-    def _sync_ingredients_on_update(
-        self,
-        db_recipe: Recipe,
-        ingredients: list[PatchRecipeIngredient],
-        recipe_id: uuid.UUID
-    ) -> None:
-        """Update ingredients for existing recipe (delete removed, update/create others)."""
-        new_recipe_ingredient_ids = {
-            ing.recipe_ingredient_id
-            for ing in ingredients
-            if ing.recipe_ingredient_id  # Filter out None
-        }
-
-        recipe_ingredient_to_delete = {
-            ing.id
-            for ing in db_recipe.ingredients
-            if ing.id not in new_recipe_ingredient_ids
-        }
-
-        for id in recipe_ingredient_to_delete:
-            self.recipe_ingredient_service.pre_delete_recipe_ingredient(id)
-
-        db_recipe.ingredients = [
-            ing for ing in db_recipe.ingredients if ing.id not in recipe_ingredient_to_delete]
-
-        for ingredient in ingredients:
-            if ingredient.new:
-                # Create ingredient
-                created = self.ingredient_service.pre_create_ingredient(
-                    IngredientCreate(name=ingredient.name))
-                ingredient.ingredient_id = created.id
-                # Create RecipeIngredient
-                self.recipe_ingredient_service.pre_create_recipe_ingredient(
-                    RecipeIngredientCreate(
-                        quantity=ingredient.quantity,
-                        unit=ingredient.unit,
-                        ingredient_id=ingredient.ingredient_id,
-                        recipe_id=recipe_id
-                    )
-                )
-            else:
-                # Update recipe_ingredients
-                if ingredient.recipe_ingredient_id:
-                    self.recipe_ingredient_service.pre_update_recipe_ingredient(
-                        ingredient.recipe_ingredient_id,
-                        RecipeIngredientUpdate(
-                            quantity=ingredient.quantity,
-                            unit=ingredient.unit,
-                            ingredient_id=ingredient.ingredient_id
-                        )
-                    )
-                else:
-                    # Create RecipeIngredient
-                    self.recipe_ingredient_service.pre_create_recipe_ingredient(
-                        RecipeIngredientCreate(
-                            quantity=ingredient.quantity,
-                            unit=ingredient.unit,
-                            ingredient_id=ingredient.ingredient_id,
-                            recipe_id=recipe_id
-                        )
-                    )
-
-    def _sync_tags_on_update(self, db_recipe: Recipe, tags: list[TagRef]) -> None:
-        """Update tags for existing recipe (delete removed, update/create others)."""
-        desired_tag_ids: set[uuid.UUID] = set()
-
-        for tag in tags:
-            if tag.new:
-                created = self.tag_service.pre_create_tag(
-                    TagCreate(name=tag.name))
-                desired_tag_ids.add(created.id)
-            elif tag.id:
-                desired_tag_ids.add(tag.id)
-
-        current_tag_ids = {tag.id for tag in db_recipe.tags}
-        tag_to_remove = current_tag_ids - desired_tag_ids
-        tag_to_add = desired_tag_ids - current_tag_ids
-
-        db_recipe.tags = [
-            tag for tag in db_recipe.tags if tag.id not in tag_to_remove]
-
-        for tag_id in tag_to_add:
-            db_recipe.tags.append(self.tag_service.get_tag(tag_id))
-
-    def _sync_instructions_on_update(
-        self,
-        db_recipe: Recipe,
-        instructions: list[PatchInstruction],
-        recipe_id: uuid.UUID
-    ) -> None:
-        """Update instructions for existing recipe (delete removed, update/create others)."""
-        new_instruction_ids = {
-            ins.id
-            for ins in instructions
-            if ins.id
-        }
-
-        instruction_to_delete = {
-            ins.id
-            for ins in db_recipe.instructions
-            if ins.id not in new_instruction_ids
-        }
-
-        for id in instruction_to_delete:
-            self.instruction_service.pre_delete_instruction(id)
-
-        db_recipe.instructions = [
-            ins
-            for ins in db_recipe.instructions
-            if ins.id not in instruction_to_delete
-        ]
-
-        for instruction in instructions:
-            if instruction.new:
-                self.instruction_service.pre_create_instruction(
-                    InstructionCreate(
-                        title=instruction.title,
-                        details=instruction.details,
-                        recipe_id=recipe_id
-                    )
-                )
-            elif instruction.id:
-                self.instruction_service.pre_update_instruction(
-                    instruction.id,
-                    InstructionUpdate(
-                        title=instruction.title,
-                        details=instruction.details,
-                        recipe_id=recipe_id
-                    )
-                )
+    # ── Private: Helpers ─────────────────────────────────────────────────────────────────────────────────────────────────
+    def _get_owned_recipe(self, recipe_id: uuid.UUID, user_id: uuid.UUID) -> Recipe:
+        """Return the recipe if it exists and belongs to the user."""
+        db_recipe = self.crud.read_recipe(recipe_id)
+        if not db_recipe:
+            raise RecipeNotFoundError()
+        if db_recipe.owner_id != user_id:
+            raise NotUserRecipeError()
+        return db_recipe

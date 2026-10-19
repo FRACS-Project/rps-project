@@ -107,7 +107,7 @@ def get_my_recipe(
     """
 
     service = RecipeService(session)
-    return service.get_recipe(recipe_id, current_user.id)
+    return service.get_recipe_by_user(recipe_id, current_user.id)
 
 
 @router.patch("/me/{recipe_id}", response_model=RecipePublicWithAll)

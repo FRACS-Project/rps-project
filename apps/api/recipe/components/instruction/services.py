@@ -28,10 +28,14 @@ from . import (
 
 from .schemas import (
     InstructionCreate,
-    InstructionUpdate
+    InstructionUpdate,
+    NewInstructionCreate,
+    PatchInstruction
 )
 
 from .crud import InstructionCrud
+
+from ...models import Recipe
 
 from ....utils import LimitQuery, OffsetQuery
 
@@ -180,3 +184,64 @@ class InstructionService:
         
         self.crud.pre_delete_instruction(db_instruction)
         return {"ok": True}
+
+    def sync_instructions_on_create(
+            self,
+            recipe_id: uuid.UUID,
+            instructions: list[NewInstructionCreate]
+    ) -> None:
+        """Create all instructions for a new recipe"""
+        for instruction in instructions:
+            self.pre_create_instruction(
+                InstructionCreate(
+                    title=instruction.title,
+                    details=instruction.details,
+                    recipe_id=recipe_id
+                )
+            )
+
+    def sync_instructions_on_update(
+            self,
+            db_recipe: Recipe,
+            instructions: list[PatchInstruction]
+    ) -> None:
+        """Update instructions for existing recipe (delete removed, update/create others)."""
+        new_instruction_ids = {
+            instruction.id
+            for instruction in instructions
+            if instruction.id
+        }
+
+        instruction_ids_to_delete = {
+            instruction.id
+            for instruction in db_recipe.instructions
+            if instruction.id not in new_instruction_ids
+        }
+
+        for instruction_id in instruction_ids_to_delete:
+            self.pre_delete_instruction(instruction_id)
+
+        db_recipe.instructions = [
+            instruction
+            for instruction in db_recipe.instructions
+            if instruction.id not in instruction_ids_to_delete
+        ]
+
+        for instruction in instructions:
+            if instruction.new:
+                self.pre_create_instruction(
+                    InstructionCreate(
+                        title=instruction.title,
+                        details=instruction.details,
+                        recipe_id=db_recipe.id
+                    )
+                )
+            elif instruction.id:
+                self.pre_update_instruction(
+                    instruction.id,
+                    InstructionUpdate(
+                        title=instruction.title,
+                        details=instruction.details,
+                        recipe_id=db_recipe.id
+                    )
+                )

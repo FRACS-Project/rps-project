@@ -198,26 +198,25 @@ class ImageService:
     def sync_recipe_images_on_update(
             self,
             db_recipe: Recipe,
-            images: list[ImagePayload],
-            recipe_id: uuid.UUID
+            images: list[ImagePayload]
     ) -> None:
         # Set ids for the images that are already in the recipe
-        db_img_ids = {
+        kept_image_ids = {
             image.id
             for image in images
             if image.id
         }
 
         # Set ids for the images that are no longer in the recipe
-        images_to_delete = {
+        image_ids_to_delete = {
             image.id
             for image in db_recipe.images
-            if image.id not in db_img_ids
+            if image.id not in kept_image_ids
         }
 
-        for id in images_to_delete:
+        for image_id in image_ids_to_delete:
             self.pre_update_image(
-                id,
+                image_id,
                 ImageUpdate(status=ImageStatus.PENDING)
             )
 
@@ -227,7 +226,7 @@ class ImageService:
                     ImageCreate(
                         status=ImageStatus.PENDING,
                         owner_id=db_recipe.owner_id,
-                        recipe_id=recipe_id
+                        recipe_id=db_recipe.id
                     )
                 ).id
 
@@ -244,7 +243,7 @@ class ImageService:
 
         self._make_primary_image(recipe_id)
 
-    def delete_pending_images(self, recipe_id: uuid.UUID):
+    def delete_pending_recipe_images(self, recipe_id: uuid.UUID):
         db_images = self.crud.get_images_by_recipe_by_status(recipe_id, ImageStatus.PENDING)
         for image in db_images:
             try:
