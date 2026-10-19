@@ -11,7 +11,7 @@
 from typing import TYPE_CHECKING
 import uuid
 from sqlmodel import Relationship, SQLModel, Field
-from datetime import datetime
+from datetime import datetime, timezone
 
 from .components.recipe_tag.models import RecipeTag
 
@@ -59,7 +59,7 @@ class Recipe(RecipeBase, table=True):
         images (list[Image]): The images associated with this recipe.
     """
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    date_created: datetime = Field(default_factory=datetime.now, nullable=False)
+    date_created: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), nullable=False)
 
     owner: "User" = Relationship(back_populates="recipes")
     owner_id: uuid.UUID = Field(foreign_key="user.id", nullable=False, ondelete="CASCADE")

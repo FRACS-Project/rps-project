@@ -9,7 +9,7 @@
 ##############################################################################################################
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 from pydantic import EmailStr
 from sqlmodel import SQLModel, Field, Relationship, VARCHAR, Column
@@ -51,7 +51,7 @@ class User(UserBase, table=True):
     """
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     hashed_password: str
-    date_created: datetime = Field(default_factory=datetime.now, nullable=False)
+    date_created: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), nullable=False)
 
     recipes: list["Recipe"] = Relationship(back_populates="owner", cascade_delete=True)
     images: list["Image"] = Relationship(back_populates="owner", cascade_delete=True)
