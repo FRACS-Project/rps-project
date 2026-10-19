@@ -1,11 +1,9 @@
-##############################################################################################################
-#
-# Recipe Ingredient Service Layer - Business Logic and Validation
-#
-# This module contains the service layer for recipe-ingredient management.
-# Services handle all business logic, validation, and coordinate between routes and CRUD.
-#
-##############################################################################################################
+"""Recipe ingredient service.
+
+Single-line CRUD for the admin routes, plus the `sync_*` methods that
+`RecipeService` calls to write a recipe's ingredient lines (creating new
+ingredients when needed) inside its transaction.
+"""
 
 import uuid
 from sqlmodel import Session
@@ -39,29 +37,23 @@ from ....utils import (
 
 
 class RecipeIngredientService:
-    """Service layer for recipe-ingredient management."""
+    """Business logic for recipe ingredient lines."""
 
     def __init__(self, db: Session):
-        """Initialize RecipeIngredientService with database session.
+        """Initialize with a database session.
 
         Args:
-            db (Session): Database session for executing queries via CRUD layer.
+            db: Database session, also used to create new ingredients.
         """
         self.db = db
         self.crud = RecipeIngredientCrud(self.db)
         self.ingredient_service = IngredientService(self.db)
 
     def create_recipe_ingredient(self, recipe_ingredient: RecipeIngredientCreate) -> RecipeIngredient:
-        """Create a recipe-ingredient relationship with duplicate validation.
-
-        Args:
-            recipe_ingredient (RecipeIngredientCreate): Relationship payload.
-
-        Returns:
-            RecipeIngredient: The newly created relationship instance.
+        """Add an ingredient line to a recipe and commit.
 
         Raises:
-            DuplicateRecipeIngredientError: If the relationship already exists.
+            DuplicateRecipeIngredientError: If the recipe already uses this ingredient.
         """
         existing = self.crud.get_recipe_ingredient_by_pair(
             recipe_ingredient.recipe_id,
@@ -73,16 +65,10 @@ class RecipeIngredientService:
         return self.crud.create_recipe_ingredient(recipe_ingredient)
     
     def pre_create_recipe_ingredient(self, recipe_ingredient: RecipeIngredientCreate) -> RecipeIngredient:
-        """Create a recipe-ingredient relationship with duplicate validation.
-
-        Args:
-            recipe_ingredient (RecipeIngredientCreate): Relationship payload.
-
-        Returns:
-            RecipeIngredient: The newly created relationship instance.
+        """Add an ingredient line to a recipe without committing.
 
         Raises:
-            DuplicateRecipeIngredientError: If the relationship already exists.
+            DuplicateRecipeIngredientError: If the recipe already uses this ingredient.
         """
         existing = self.crud.get_recipe_ingredient_by_pair(
             recipe_ingredient.recipe_id,
@@ -94,28 +80,14 @@ class RecipeIngredientService:
         return self.crud.pre_create_recipe_ingredient(recipe_ingredient)
 
     def get_recipe_ingredients(self, offset: OffsetQuery = DEFAULT_OFFSET, limit: LimitQuery = DEFAULT_LIMIT) -> list[RecipeIngredient]:
-        """Retrieve a paginated list of recipe-ingredient relationships.
-
-        Args:
-            offset (OffsetQuery): Number of relationships to skip (for pagination).
-            limit (LimitQuery): Maximum number of relationships to return.
-
-        Returns:
-            list[RecipeIngredient]: List of relationships.
-        """
+        """Return a page of recipe ingredient lines from all recipes."""
         return self.crud.read_recipe_ingredients(offset, limit)
 
     def get_recipe_ingredient(self, recipe_ingredient_id: uuid.UUID) -> RecipeIngredient:
-        """Retrieve a specific recipe-ingredient relationship by ID.
-
-        Args:
-            recipe_ingredient_id (UUID): The unique identifier of the relationship.
-
-        Returns:
-            RecipeIngredient: The relationship instance.
+        """Return a recipe ingredient line by ID.
 
         Raises:
-            RecipeIngredientNotFoundError: If the relationship is not found.
+            RecipeIngredientNotFoundError: If no line has this ID.
         """
         recipe_ingredient = self.crud.read_recipe_ingredient(
             recipe_ingredient_id)
@@ -129,17 +101,17 @@ class RecipeIngredientService:
         recipe_ingredient_id: uuid.UUID,
         recipe_ingredient: RecipeIngredientUpdate | PatchRecipeIngredient,
     ) -> RecipeIngredient:
-        """Update an existing recipe-ingredient relationship.
+        """Partially update a line and commit.
 
         Args:
-            recipe_ingredient_id (UUID): The unique identifier of the relationship.
-            recipe_ingredient (RecipeIngredientUpdate): The new data to apply.
+            recipe_ingredient_id: ID of the line.
+            recipe_ingredient: Fields to change.
 
         Returns:
-            RecipeIngredient: The updated relationship instance.
+            The updated line.
 
         Raises:
-            RecipeIngredientNotFoundError: If the relationship is not found.
+            RecipeIngredientNotFoundError: If no line has this ID.
         """
         db_recipe_ingredient = self.crud.read_recipe_ingredient(
             recipe_ingredient_id)
@@ -155,17 +127,17 @@ class RecipeIngredientService:
         recipe_ingredient_id: uuid.UUID,
         recipe_ingredient: RecipeIngredientUpdate,
     ) -> RecipeIngredient:
-        """Update an existing recipe-ingredient relationship.
+        """Partially update a line without committing.
 
         Args:
-            recipe_ingredient_id (UUID): The unique identifier of the relationship.
-            recipe_ingredient (RecipeIngredientUpdate): The new data to apply.
+            recipe_ingredient_id: ID of the line.
+            recipe_ingredient: Fields to change.
 
         Returns:
-            RecipeIngredient: The updated relationship instance.
+            The updated line.
 
         Raises:
-            RecipeIngredientNotFoundError: If the relationship is not found.
+            RecipeIngredientNotFoundError: If no line has this ID.
         """
         db_recipe_ingredient = self.crud.read_recipe_ingredient(
             recipe_ingredient_id)
@@ -176,16 +148,10 @@ class RecipeIngredientService:
         return self.crud.pre_update_recipe_ingredient(db_recipe_ingredient, recipe_ingredient_data)
 
     def delete_recipe_ingredient(self, recipe_ingredient_id: uuid.UUID) -> dict:
-        """Delete a recipe-ingredient relationship by ID.
-
-        Args:
-            recipe_ingredient_id (UUID): The unique identifier of the relationship.
-
-        Returns:
-            dict: Confirmation message.
+        """Delete a line and commit.
 
         Raises:
-            RecipeIngredientNotFoundError: If the relationship is not found.
+            RecipeIngredientNotFoundError: If no line has this ID.
         """
         db_recipe_ingredient = self.crud.read_recipe_ingredient(
             recipe_ingredient_id)
@@ -195,16 +161,10 @@ class RecipeIngredientService:
         return self.crud.delete_recipe_ingredient(db_recipe_ingredient)
     
     def pre_delete_recipe_ingredient(self, recipe_ingredient_id: uuid.UUID) -> dict:
-        """Delete a recipe-ingredient relationship by ID.
-
-        Args:
-            recipe_ingredient_id (UUID): The unique identifier of the relationship.
-
-        Returns:
-            dict: Confirmation message.
+        """Delete a line without committing.
 
         Raises:
-            RecipeIngredientNotFoundError: If the relationship is not found.
+            RecipeIngredientNotFoundError: If no line has this ID.
         """
         db_recipe_ingredient = self.crud.read_recipe_ingredient(
             recipe_ingredient_id)
@@ -218,7 +178,14 @@ class RecipeIngredientService:
             recipe_id: uuid.UUID,
             ingredients: list[NewRecipeIngredient]
     ) -> None:
-        """Create all ingredients for a new recipe."""
+        """Create the ingredient lines of a new recipe. Does not commit.
+
+        `new` ingredients are created first, then linked.
+
+        Args:
+            recipe_id: ID of the new recipe.
+            ingredients: Lines from the `NewRecipe` body.
+        """
         for ingredient in ingredients:
             if ingredient.new:
                 created_ingredient = self.ingredient_service.pre_create_ingredient(
@@ -233,7 +200,16 @@ class RecipeIngredientService:
             db_recipe: Recipe,
             ingredients: list[PatchRecipeIngredient]
         ) -> None:
-        """Update ingredients for existing recipe (delete removed, update/create others)."""
+        """Make the recipe's ingredient lines match the payload. Does not commit.
+
+        Lines whose `recipe_ingredient_id` is missing from the payload are deleted,
+        lines with one are updated, and the others are added. `new` ingredients
+        are created first.
+
+        Args:
+            db_recipe: Recipe being edited.
+            ingredients: Full list of lines from the `PatchRecipe` body.
+        """
         new_recipe_ingredient_ids = {
             ingredient.recipe_ingredient_id
             for ingredient in ingredients
@@ -279,6 +255,7 @@ class RecipeIngredientService:
             ingredient: NewRecipeIngredient | PatchRecipeIngredient,
             recipe_id: uuid.UUID
     ):
+        """Add one ingredient line to the recipe without committing."""
         self.pre_create_recipe_ingredient(
             RecipeIngredientCreate(
                 quantity=ingredient.quantity,

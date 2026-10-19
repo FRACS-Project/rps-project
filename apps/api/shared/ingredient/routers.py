@@ -1,16 +1,4 @@
-##############################################################################################################
-#
-# Ingredient Management Routes
-#
-# This module provides HTTP endpoints for Ingredient management.
-# Routes handle HTTP request/response and delegate business logic to the service layer.
-#
-# Architecture:
-#   - Routes: HTTP layer (request parsing, response formatting)
-#   - Services: Business logic (validation, orchestration)
-#   - CRUD: Database operations (queries, inserts, updates, deletes)
-#
-##############################################################################################################
+"""Ingredient endpoints under `/ingredient`. Login required; writes are admin only."""
 
 import uuid
 from fastapi import APIRouter, Depends, HTTPException
@@ -42,14 +30,10 @@ router = APIRouter(
 
 @router.post("/", response_model=IngredientPublic, dependencies=[Depends(get_current_admin_user)])
 def create_ingredient(ingredient: IngredientCreate, session: Session = Depends(get_session)):
-    """Create a new Ingredient.
+    """Admin: create an ingredient.
 
-    Args:
-        ingredient (IngredientCreate): Ingredient payload.
-        session (Session): Database session dependency.
-
-    Returns:
-        IngredientPublic: Created Ingredient data.
+    Raises:
+        DuplicateIngredientNameError: 409 if an ingredient already has this name.
     """
     service = IngredientService(session)
     return service.create_ingredient(ingredient)
@@ -61,16 +45,7 @@ def get_ingredients(
         limit: LimitQuery = DEFAULT_LIMIT,
         session: Session = Depends(get_session)
 ):
-    """Retrieve a paginated list of Ingredients.
-
-    Args:
-        offset (OffsetQuery): Number of ingredients to skip (for pagination).
-        limit (LimitQuery): Maximum number of ingredients to return.
-        session (Session): Database session dependency.
-
-    Returns:
-        List[IngredientPublic]: List of ingredients.
-    """
+    """List ingredients, paginated with `offset` and `limit`."""
     service = IngredientService(session)
     return service.get_ingredients(offset, limit)
 
@@ -79,14 +54,10 @@ def get_ingredients(
 def get_ingredient(
         ingredient_id: uuid.UUID,
         session: Session = Depends(get_session)):
-    """Retrieve a specific Ingredient by its ID.
+    """Get an ingredient by ID.
 
-    Args:
-        ingredient_id (UUID): The unique identifier of the ingredient.
-        session (Session): The database session dependency.
-
-    Returns:
-        IngredientPublic: The ingredient data.
+    Raises:
+        IngredientNotFoundError: 404 if no ingredient has this ID.
     """
 
     service = IngredientService(session)
@@ -98,15 +69,10 @@ def update_ingredient(
         ingredient_id: uuid.UUID,
         ingredient: IngredientUpdate,
         session: Session = Depends(get_session)):
-    """Update a specific Ingredient by its ID.
+    """Admin: rename an ingredient.
 
-    Args:
-        ingredient_id (UUID): The unique identifier of the ingredient.
-        ingredient (IngredientUpdate): Fields to update and their new values.
-        session (Session): The database session dependency.
-
-    Returns:
-        IngredientPublic: The updated ingredient data.
+    Raises:
+        IngredientNotFoundError: 404 if no ingredient has this ID.
     """
 
     service = IngredientService(session)
@@ -117,14 +83,10 @@ def update_ingredient(
 def delete_ingredient(
         ingredient_id: uuid.UUID,
         session: Session = Depends(get_session)):
-    """Delete a Ingredient by its ID.
+    """Admin: delete an ingredient.
 
-    Args:
-        ingredient_id (UUID): The unique identifier of the ingredient.
-        session (Session): The database session dependency.
-
-    Returns:
-        dict: Confirmation message.
+    Raises:
+        IngredientNotFoundError: 404 if no ingredient has this ID.
     """
 
     service = IngredientService(session)

@@ -1,12 +1,8 @@
-##############################################################################################################
-#
-# Router aggregation for all API endpoints.
-#
-# This module imports and aggregates all route handlers from different modules
-# (authentication, recipes, ingredients, recipe ingredients) into a single list
-# for registration with the FastAPI application.
-#
-##############################################################################################################
+"""Router registry.
+
+Collects the routers of every feature module into `all_routers`, which
+`main.py` registers on the FastAPI app.
+"""
 
 from .user.routers import user_router
 from .auth.routers import login_router, register_router

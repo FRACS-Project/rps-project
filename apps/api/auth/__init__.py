@@ -1,6 +1,6 @@
-"""Authentication module exports."""
+"""Auth module: token schemas. Routers are imported directly to avoid circular imports."""
+
 from .token import Token, TokenData
-# Services and routes are imported directly to avoid circular imports
 
 __all__ = [
     "Token",

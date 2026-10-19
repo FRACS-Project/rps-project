@@ -1,11 +1,4 @@
-##############################################################################################################
-#
-# Pydantic schemas for ingredient data validation and serialization.
-#
-# This module defines the various schemas used for creating, updating, and
-# returning ingredient data through the API endpoints.
-#
-##############################################################################################################
+"""Request and response schemas for ingredients."""
 
 from pydantic import field_validator
 import re
@@ -14,10 +7,12 @@ from . import IngredientBase
 
 
 class IngredientSchemaBase(IngredientBase):
+    """Base for ingredient request bodies. Adds validation of the name."""
 
     @field_validator("name")
     @classmethod
     def name_must_be_valid(cls, v: str) -> str:
+        """Strip spaces and allow only letters (accents included), spaces, `'` and `-`."""
         v = v.strip()
         if not re.match(r"^[a-zA-ZÀ-ÿ'\-\s]+$", v):
             raise ValueError("Name must only contain letters and spaces")
@@ -25,31 +20,19 @@ class IngredientSchemaBase(IngredientBase):
 
 
 class IngredientPublic(IngredientBase):
-    """Schema for publicly viewable ingredient data.
-    
+    """Ingredient returned by the API.
+
     Attributes:
-        id (UUID): The ingredient's unique identifier.
-        name (str): The ingredient name.
-        type (IngredientType): The ingredient type.
+        id: The ingredient's ID.
     """
     id: uuid.UUID
 
 
 class IngredientCreate(IngredientSchemaBase):
-    """Schema for creating a new ingredient.
-    
-    Inherits all base ingredient fields that are required for creation.
-    """
+    """Body for creating an ingredient."""
     pass
 
 
 class IngredientUpdate(IngredientSchemaBase):
-    """Schema for updating ingredient data.
-    
-    All fields are optional to allow partial updates.
-    
-    Attributes:
-        name (str, optional): The updated ingredient name.
-        type (IngredientType, optional): The updated ingredient type.
-    """
+    """Partial update of an ingredient. Only the fields sent are changed."""
     name: str | None = None

@@ -1,16 +1,8 @@
-##############################################################################################################
-#
-# Recipe Management Routes
-#
-# This module provides HTTP endpoints for recipe management.
-# Routes handle HTTP request/response and delegate business logic to the service layer.
-#
-# Architecture:
-#   - Routes: HTTP layer (request parsing, response formatting)
-#   - Services: Business logic (validation, orchestration)
-#   - CRUD: Database operations (queries, inserts, updates, deletes)
-#
-##############################################################################################################
+"""Recipe endpoints under `/recipe`.
+
+- `/recipe/me...`: the logged-in user's recipes (create, list, get, edit, delete).
+- `/recipe/...`: public reads of any recipe, and admin-only writes.
+"""
 
 import uuid
 from fastapi import APIRouter, Depends, HTTPException
@@ -52,15 +44,14 @@ def create_my_recipe(
         session: Session = Depends(get_session),
         current_user: UserPublic = Depends(get_current_active_user)
 ):
-    """Create a recipe with ingredients and instructions in one request.
+    """Create a recipe with its ingredients, tags, instructions and images.
 
-    Args:
-        recipe (NewRecipe): Aggregated recipe payload.
-        session (Session): The database session dependency.
-        current_user (UserPublic): Current authenticated user.
-
-    Returns:
-        RecipePublicWithAll: Created recipe with related data.
+    Raises:
+        DuplicateRecipeNameError: 409 if you already have a recipe with this name.
+        NoIngredientInRecipeError: 404 if the ingredients are missing or invalid.
+        NoTagInRecipeError: 404 if the tags are missing or invalid.
+        NoInstructionInRecipeError: 404 if the instructions are missing or invalid.
+        NoImageInRecipeError: 404 if an image has neither an ID nor data.
     """
 
     service = RecipeService(session)
@@ -74,17 +65,7 @@ def get_my_recipes(
         session: Session = Depends(get_session),
         current_user: UserPublic = Depends(get_current_active_user)
 ):
-    """Retrieve recipes created by the current user.
-
-    Args:
-        offset (OffsetQuery): Number of recipes to skip (for pagination).
-        limit (LimitQuery): Maximum number of recipes to return.
-        session (Session): Database session dependency.
-        current_user (UserPublic): Current authenticated user.
-
-    Returns:
-        List[RecipePublicWithAll]: List of user's recipes with related data.
-    """
+    """List your recipes, paginated with `offset` and `limit`."""
     service = RecipeService(session)
     return service.get_recipes_by_user(offset, limit, current_user.id)
 
@@ -95,15 +76,11 @@ def get_my_recipe(
         session: Session = Depends(get_session),
         current_user: UserPublic = Depends(get_current_active_user)
 ):
-    """Retrieve a specific recipe by its ID.
+    """Get one of your recipes.
 
-    Args:
-        recipe_id (UUID): The unique identifier of the recipe.
-        session (Session): The database session dependency.
-        current_user (UserPublic): Current authenticated user.
-
-    Returns:
-        RecipePublicWithAll: The recipe with related data.
+    Raises:
+        RecipeNotFoundError: 404 if no recipe has this ID.
+        NotUserRecipeError: 403 if the recipe is not yours.
     """
 
     service = RecipeService(session)
@@ -117,16 +94,12 @@ def update_my_recipe(
         session: Session = Depends(get_session),
         current_user: UserPublic = Depends(get_current_active_user)
 ):
-    """Update a specific recipe by its ID.
+    """Edit one of your recipes. Send the full recipe: missing ingredients, tags and steps are removed.
 
-    Args:
-        recipe_id (UUID): The unique identifier of the recipe.
-        recipe (RecipeUpdate): Fields to update and their new values.
-        session (Session): The database session dependency.
-        current_user (UserPublic): Current authenticated user.
-
-    Returns:
-        RecipePublicWithAll: The updated recipe data.
+    Raises:
+        RecipeNotFoundError: 404 if no recipe has this ID.
+        NotUserRecipeError: 403 if the recipe is not yours.
+        DuplicateRecipeNameError: 409 if you already have another recipe with this name.
     """
 
     service = RecipeService(session)
@@ -139,15 +112,11 @@ def delete_my_recipe(
         session: Session = Depends(get_session),
         current_user: UserPublic = Depends(get_current_active_user)
 ):
-    """Delete the recipe by its ID for the current user.
+    """Delete one of your recipes.
 
-    Args:
-        recipe_id (UUID): The unique identifier of the recipe.
-        session (Session): The database session dependency.
-        current_user (UserPublic): Current authenticated user.
-
-    Returns:
-        dict: Confirmation message.
+    Raises:
+        RecipeNotFoundError: 404 if no recipe has this ID.
+        NotUserRecipeError: 403 if the recipe is not yours.
     """
 
     service = RecipeService(session)
@@ -157,14 +126,10 @@ def delete_my_recipe(
 @router.post("/", response_model=RecipePublic, dependencies=[Depends(get_current_admin_user)])
 def create_recipe(recipe: RecipeCreate,
                   session: Session = Depends(get_session)):
-    """Create a new recipe.
+    """Admin: create a recipe row for any owner, without related data.
 
-    Args:
-        recipe (RecipeCreate): Recipe payload.
-        session (Session): Database session dependency.
-
-    Returns:
-        RecipePublic: Created recipe data.
+    Raises:
+        DuplicateRecipeNameError: 409 if any recipe already has this name.
     """
     service = RecipeService(session)
     return service.create_recipe(recipe)
@@ -175,16 +140,7 @@ def get_recipes(
         offset: OffsetQuery = DEFAULT_OFFSET,
         limit: LimitQuery = DEFAULT_LIMIT,
         session: Session = Depends(get_session)):
-    """Retrieve a paginated list of recipes.
-
-    Args:
-        offset (OffsetQuery): Number of recipes to skip (for pagination).
-        limit (LimitQuery): Maximum number of recipes to return.
-        session (Session): Database session dependency.
-
-    Returns:
-        List[RecipePublicWithAll]: List of recipes with related data.
-    """
+    """List recipes from all users, paginated with `offset` and `limit`."""
     service = RecipeService(session)
     return service.get_recipes(offset, limit)
 
@@ -193,14 +149,10 @@ def get_recipes(
 def get_recipe(
         recipe_id: uuid.UUID,
         session: Session = Depends(get_session)):
-    """Retrieve a specific recipe by its ID.
+    """Get any recipe by ID.
 
-    Args:
-        recipe_id (UUID): The unique identifier of the recipe.
-        session (Session): The database session dependency.
-
-    Returns:
-        RecipePublicWithAll: The recipe with related data.
+    Raises:
+        RecipeNotFoundError: 404 if no recipe has this ID.
     """
 
     service = RecipeService(session)
@@ -211,6 +163,7 @@ def get_recipe(
 def get_recipe_images(
         recipe_id: uuid.UUID,
         session: Session = Depends(get_session)):
+    """List the recipe's active images."""
 
     service = RecipeService(session)
 
@@ -221,6 +174,11 @@ def get_recipe_images(
 def get_recipe_image_primary(
         recipe_id: uuid.UUID,
         session: Session = Depends(get_session)):
+    """Get the recipe's primary image.
+
+    Raises:
+        ImageNotFoundError: 404 if the recipe has no primary image.
+    """
 
     service = RecipeService(session)
 
@@ -232,15 +190,11 @@ def update_recipe(
         recipe_id: uuid.UUID,
         recipe: RecipeUpdate,
         session: Session = Depends(get_session)):
-    """Update a specific recipe by its ID.
+    """Admin: partially update any recipe's fields. Only the fields sent are changed.
 
-    Args:
-        recipe_id (UUID): The unique identifier of the recipe.
-        recipe (RecipeUpdate): Fields to update and their new values.
-        session (Session): The database session dependency.
-
-    Returns:
-        RecipePublicWithAll: The updated recipe data.
+    Raises:
+        RecipeNotFoundError: 404 if no recipe has this ID.
+        EmptyRecipeUpdateError: 400 if no field is sent.
     """
 
     service = RecipeService(session)
@@ -251,14 +205,10 @@ def update_recipe(
 def delete_recipe(
         recipe_id: uuid.UUID,
         session: Session = Depends(get_session)):
-    """Delete a recipe by its ID.
+    """Admin: delete any recipe.
 
-    Args:
-        recipe_id (UUID): The unique identifier of the recipe.
-        session (Session): The database session dependency.
-
-    Returns:
-        dict: Confirmation message.
+    Raises:
+        RecipeNotFoundError: 404 if no recipe has this ID.
     """
 
     service = RecipeService(session)

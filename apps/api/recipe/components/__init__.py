@@ -1,4 +1,5 @@
-"""Instruction module exports."""
+"""Recipe components: instructions, ingredient lines and the recipe-tag link table."""
+
 from .instruction import (
     Instruction,
     InstructionBase,

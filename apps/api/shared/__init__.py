@@ -1,3 +1,5 @@
+"""Shared modules used by several features: ingredients, tags, bookmarks and images."""
+
 from .ingredient import (
     Ingredient,
     IngredientBase,

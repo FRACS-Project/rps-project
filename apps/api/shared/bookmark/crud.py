@@ -1,11 +1,4 @@
-##############################################################################################################
-#
-# CRUD operations for managing recipes in the application.
-#
-# This module provides functions to create, read, update, and delete recipe entities
-# in the database. It handles all database interactions related to recipes.
-#
-##############################################################################################################
+"""Database access for bookmarks. No validation; the service layer handles that."""
 
 import uuid
 from sqlmodel import Session, select
@@ -15,24 +8,18 @@ from .schemas import BookmarkCreate
 
 
 class BookmarkCrud:
+    """Queries and writes for the bookmark table."""
 
     def __init__(self, db: Session):
-        """Initialize RecipeCrud with database session.
+        """Initialize with a database session.
 
         Args:
-            db (Session): Database session for executing queries via CRUD layer.
+            db: Database session.
         """
         self.db = db
 
     def read_bookmark(self, recipe_id: uuid.UUID, user_id: uuid.UUID) -> Bookmark | None:
-        """Retrieve a specific recipe by its ID.
-
-        Args:
-            recipe_id (uuid.UUID): The unique identifier of the recipe.
-
-        Returns:
-            Recipe | None: The found recipe instance or None if not found.
-        """
+        """Return the user's bookmark on this recipe, or None."""
         query = select(Bookmark).where(
             Bookmark.user_id == user_id,
             Bookmark.recipe_id == recipe_id,
@@ -40,20 +27,13 @@ class BookmarkCrud:
         return self.db.exec(query).first()
 
     def read_bookmarks(self, offset: int, limit: int, user_id: uuid.UUID) -> list[Bookmark]:
-        """Retrieve a paginated list of recipes.
-
-        Args:
-            offset (int): Number of records to skip.
-            limit (int): Maximum number of records to return.
-
-        Returns:
-            list[Recipe]: A list of recipe instances.
-        """
+        """Return a page of the user's bookmarks."""
         query = select(Bookmark).where(Bookmark.user_id == user_id)
 
         return self.db.exec(query.offset(offset).limit(limit)).all()
 
     def create_bookmark(self, bookmark: BookmarkCreate) -> Bookmark:
+        """Insert a bookmark and commit."""
 
         db_bookmark = Bookmark.model_validate(bookmark)
         self.db.add(db_bookmark)
@@ -62,14 +42,7 @@ class BookmarkCrud:
         return db_bookmark
 
     def delete_bookmark(self, db_bookmark: Bookmark) -> dict:
-        """Delete a recipe from the database.
-
-        Args:
-            db_recipe (Recipe): The recipe instance to delete.
-
-        Returns:
-            dict: Confirmation message.
-        """
+        """Delete a bookmark and commit."""
         self.db.delete(db_bookmark)
         self.db.commit()
         return {"ok": True}

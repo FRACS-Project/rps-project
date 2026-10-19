@@ -1,12 +1,4 @@
-##############################################################################################################
-#
-# Database models for user management.
-#
-# This module defines the SQLModel classes for user data persistence,
-# including base user information and the complete user model with authentication
-# and relationship data.
-#
-##############################################################################################################
+"""User table model."""
 
 import uuid
 from datetime import datetime, timezone
@@ -20,13 +12,13 @@ if TYPE_CHECKING:
 
 
 class UserBase(SQLModel):
-    """Base model for user information.
+    """Fields shared by the user table and its schemas.
 
     Attributes:
-        name (str): The username.
-        mail (EmailStr): The user's email address (unique).
-        admin (bool, optional): Whether the user has admin privileges. Defaults to False.
-        disabled (bool, optional): Whether the user account is disabled. Defaults to False.
+        name: Unique username.
+        mail: Unique email, stored in the `email` column.
+        admin: Whether the user can use admin endpoints.
+        disabled: Whether the account is blocked from logging in.
     """
     name: str
     mail: EmailStr = Field(sa_column=Column("email", VARCHAR, unique=True))
@@ -35,19 +27,17 @@ class UserBase(SQLModel):
 
 
 class User(UserBase, table=True):
-    """Complete user model for database storage.
+    """User table.
 
-    Extends UserBase to include:
-    - Unique identifier
-    - Password hash
-    - Account creation timestamp
-    - Relationship to recipes
+    Deleting a user also deletes their recipes and images.
 
     Attributes:
-        id (UUID): Unique identifier for the user.
-        hashed_password (str): Bcrypt hash of the user's password.
-        date_created (datetime): When the user account was created.
-        recipes (list[Recipe]): The list of recipes owned by the user.
+        id: Primary key.
+        hashed_password: Bcrypt hash; the plain password is never stored.
+        date_created: Creation time (UTC).
+        recipes: Recipes owned by the user.
+        images: Images uploaded by the user.
+        bookmarks: Recipes the user bookmarked.
     """
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     hashed_password: str

@@ -1,11 +1,4 @@
-##############################################################################################################
-#
-# Pydantic schemas for recipe-ingredient data validation and serialization.
-#
-# This module defines the various schemas used for creating, updating, and
-# returning recipe-ingredient data through the API endpoints.
-#
-##############################################################################################################
+"""Request and response schemas for recipe ingredients."""
 
 from typing import TYPE_CHECKING, Optional
 import uuid, re
@@ -17,12 +10,12 @@ from ....shared.ingredient.schemas import IngredientPublic
 
 
 class RecipeIngredientPublic(BaseModel):
-    """Schema for publicly viewable recipe-ingredient data.
-    
+    """Recipe ingredient line returned by the API, without the ingredient.
+
     Attributes:
-        id (UUID): The recipe-ingredient relationship's unique identifier.
-        quantity (int): The quantity of the ingredient required.
-        unit (Optional[Unit]): The unit of measurement for the quantity.
+        id: ID of the line.
+        quantity: Amount of the ingredient.
+        unit: Unit of the quantity.
     """
     id: uuid.UUID
     quantity: float
@@ -30,24 +23,15 @@ class RecipeIngredientPublic(BaseModel):
 
 
 class RecipeIngredientCreate(RecipeIngredientBase):
-    """Schema for creating a recipe-ingredient relationship.
-    
-    Inherits base recipe-ingredient fields with custom validation for unit types.
-    """
+    """Recipe ingredient fields used to insert a row."""
     pass
     
 
 class RecipeIngredientUpdate(RecipeIngredientBase):
-    """Schema for updating recipe-ingredient relationship data.
-    
-    All fields are optional to allow partial updates.
-    
+    """Partial update of a recipe ingredient line. Only the fields sent are changed.
+
     Attributes:
-        name (str, optional): The ingredient name (if updating).
-        quantity (int, optional): The updated quantity.
-        unit (Optional[Unit], optional): The updated unit of measurement.
-        ingredient_id (Optional[UUID], optional): The updated ingredient reference.
-        recipe_id (UUID): The recipe reference for the relationship.
+        quantity: New amount. Typed `int`, unlike the float on the model.
     """
     unit: Unit | None = None
     quantity: int | None = None
@@ -57,28 +41,26 @@ class RecipeIngredientUpdate(RecipeIngredientBase):
 
 
 class RecipeIngredientPublicWithAll(RecipeIngredientPublic):
-    """Extended recipe-ingredient schema including the full ingredient data.
-    
-    Extends RecipeIngredientPublic to include nested ingredient information.
-    
+    """Recipe ingredient line returned with its ingredient.
+
     Attributes:
-        id (UUID): The recipe-ingredient relationship's unique identifier.
-        quantity (int): The quantity of the ingredient required.
-        unit (Optional[Unit]): The unit of measurement for the quantity.
-        ingredient (Optional[IngredientPublic]): The complete ingredient information.
+        ingredient: The ingredient used.
     """
     ingredient: IngredientPublic | None = None
 
 
 class NewRecipeIngredient(BaseModel):
-    """Schema for adding a recipe ingredient using an existing or new ingredient.
+    """One ingredient line in the `NewRecipe` body.
+
+    Send either `ingredient_id` for an existing ingredient, or `new=True` and
+    a `name` to create one.
 
     Attributes:
-        ingredient_id (UUID, optional): Existing ingredient identifier.
-        name (str, optional): New ingredient name.
-        new (IngredientType, optional): New ingredient type.
-        quantity (float): Quantity of the ingredient.
-        unit (Unit, optional): Unit of measurement for the quantity.
+        ingredient_id: ID of an existing ingredient.
+        name: Name of the ingredient to create.
+        quantity: Amount of the ingredient.
+        unit: Unit of the quantity.
+        new: True to create the ingredient.
     """
     ingredient_id: uuid.UUID | None = None
     name: str | None = None
@@ -88,6 +70,7 @@ class NewRecipeIngredient(BaseModel):
 
     @model_validator(mode="after")
     def validate_existing_or_new(self):
+        """Require either `ingredient_id`, or `new=True` with a `name`, but not both."""
         has_id = self.ingredient_id is not None
         has_name = self.name is not None
         is_new = self.new is True
@@ -105,14 +88,19 @@ class NewRecipeIngredient(BaseModel):
     
 
 class PatchRecipeIngredient(BaseModel):
-    """Schema for modifying a recipe ingredient using an existing or new ingredient.
+    """One ingredient line in the `PatchRecipe` body.
+
+    Send `recipe_ingredient_id` to keep and update an existing line. For the
+    ingredient, send `ingredient_id`, or `new=True` and a `name` to create it.
+    A line without `recipe_ingredient_id` is added.
 
     Attributes:
-        ingredient_id (UUID, optional): Existing ingredient identifier.
-        name (str, optional): New ingredient name.
-        new (IngredientType, optional): New ingredient type.
-        quantity (float): Quantity of the ingredient.
-        unit (Unit, optional): Unit of measurement for the quantity.
+        ingredient_id: ID of an existing ingredient.
+        name: Name of the ingredient to create.
+        quantity: Amount of the ingredient.
+        unit: Unit of the quantity.
+        new: True to create the ingredient.
+        recipe_ingredient_id: ID of the existing line to update.
     """
     ingredient_id: uuid.UUID | None = None
     name: str | None = None
@@ -124,6 +112,7 @@ class PatchRecipeIngredient(BaseModel):
     @field_validator("name")
     @classmethod
     def name_must_be_valid(cls, v: str | None) -> str | None:
+        """Strip and lowercase the name, and allow only letters (accents included) and spaces."""
         if v is None:
             return None
         v = v.strip().lower()
@@ -133,6 +122,11 @@ class PatchRecipeIngredient(BaseModel):
     
     @model_validator(mode="after")
     def validate_id_or_name(self) -> "PatchRecipeIngredient":
+        """Check the ingredient reference.
+
+        `new=True` requires a `name` and no `ingredient_id`. Otherwise `name` is
+        not allowed, and `ingredient_id` or `recipe_ingredient_id` is required.
+        """
         has_id = self.ingredient_id is not None
         has_name = self.name is not None
         is_new = self.new is True

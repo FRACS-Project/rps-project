@@ -1,11 +1,4 @@
-##############################################################################################################
-#
-# Pydantic schemas for tag data validation and serialization.
-#
-# This module defines the various schemas used for creating, updating, and
-# returning tag data through the API endpoints.
-#
-##############################################################################################################
+"""Request and response schemas for tags."""
 
 from pydantic import BaseModel, model_validator, field_validator
 import uuid, re
@@ -14,10 +7,12 @@ from . import TagBase
 
 
 class TagSchemaBase(TagBase):
+    """Base for tag request bodies. Adds validation of the name."""
 
     @field_validator("name")
     @classmethod
     def name_must_be_valid(cls, v: str) -> str:
+        """Strip spaces and allow only letters (accents included) and spaces."""
         v = v.strip()
         if not re.match(r"^[a-zA-ZÀ-ÿ\s]+$", v):
             raise ValueError("Name must only contain letters and spaces")
@@ -25,36 +20,34 @@ class TagSchemaBase(TagBase):
 
 
 class TagPublic(TagBase):
-    """Schema for publicly viewable tag data.
-    
+    """Tag returned by the API.
+
     Attributes:
-        id (UUID): The tag's unique identifier.
-        name (str): The tag name.
+        id: The tag's ID.
     """
     id: uuid.UUID
 
 
 class TagCreate(TagSchemaBase):
-    """Schema for creating a new Tag.
-    
-    Inherits all base Tag fields that are required for creation.
-    """
+    """Body for creating a tag."""
     pass
 
 
 class TagUpdate(TagSchemaBase):
-    """Schema for updating Tag data.
-    
-    All fields are optional to allow partial updates.
-    
-    Attributes:
-        name (str, optional): The updated tag name.
-    """
+    """Partial update of a tag. Only the fields sent are changed."""
     name: str | None = None
 
 
 class TagRef(BaseModel):
-    """Reference schema for linking tags by id or name."""
+    """One tag in the `NewRecipe` / `PatchRecipe` body.
+
+    Send either `id` for an existing tag, or `new=True` and a `name` to create one.
+
+    Attributes:
+        id: ID of an existing tag.
+        name: Name of the tag to create.
+        new: True to create the tag.
+    """
     id: uuid.UUID | None = None
     name: str | None = None
     new: bool = False
@@ -62,6 +55,7 @@ class TagRef(BaseModel):
     @field_validator("name")
     @classmethod
     def name_must_be_valid(cls, v: str) -> str:
+        """Strip and lowercase the name, and allow only letters (accents included) and spaces."""
         v = v.strip().lower()
         if not re.match(r"^[a-zA-ZÀ-ÿ\s]+$", v):
             raise ValueError("Name must only contain letters and spaces")
@@ -69,6 +63,7 @@ class TagRef(BaseModel):
 
     @model_validator(mode="after")
     def validate_id_or_name(self) -> "TagRef":
+        """Require either `id`, or `new=True` with a `name`, but not both."""
         has_id = self.id is not None
         has_name = self.name is not None
         is_new = self.new is True

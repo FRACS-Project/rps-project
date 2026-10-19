@@ -1,4 +1,5 @@
-"""Utility module exports."""
+"""Shared helpers: pagination query parameter types."""
+
 from .query_params import (
     LimitQuery,
     DEFAULT_LIMIT,

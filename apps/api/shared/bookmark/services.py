@@ -1,22 +1,8 @@
-##############################################################################################################
-#
-# Bookmark Service Layer - Business Logic and Validation
-#
-# This module contains the service layer for bookmark management.
-# Services handle all business logic, validation, and coordinate between routes and CRUD.
-#
-# Architecture:
-#   - Receives requests from routes (HTTP layer)
-#   - Validates business rules (duplicates, existence)
-#   - Coordinates CRUD operations (database layer)
-#   - Handles error conditions with domain-specific exceptions
-#
-# Key Responsibilities:
-#   - Recipe creation with duplicate name checking
-#   - Recipe retrieval and pagination
-#   - Recipe updates and deletion with existence validation
-#
-##############################################################################################################
+"""Bookmark service.
+
+Saves and removes bookmarks, and returns the bookmarked recipes rather
+than the bookmark rows.
+"""
 
 import uuid
 from sqlmodel import Session
@@ -29,18 +15,14 @@ from ...recipe import Recipe
 from ...recipe.services import RecipeService
 
 class BookmarkService:
-    """Service layer for recipe management.
-
-    Handles all business logic related to recipes including creation, validation,
-    and lifecycle operations. Coordinates between HTTP routes and database CRUD.
-    """
+    """Business logic for bookmarks."""
     # ── Constructor ─────────────────────────────────────────────────────────────────────────────────────────────────
 
     def __init__(self, db: Session):
-        """Initialize RecipeService with database session.
+        """Initialize with a database session.
 
         Args:
-            db (Session): Database session for executing queries via CRUD layer.
+            db: Database session.
         """
         self.db = db
         self.crud = BookmarkCrud(self.db)
@@ -48,20 +30,19 @@ class BookmarkService:
 
     # ── Public: Queries ─────────────────────────────────────────────────────────────────────────────────────────────────
     def get_bookmark_by_user(self, recipe_id: uuid.UUID, user_id: uuid.UUID) -> Recipe:
-        """Retrieve a specific recipe by ID.
+        """Return a recipe the user bookmarked.
 
         Args:
-            recipe_id (uuid.UUID): The unique identifier of the recipe.
+            recipe_id: ID of the recipe.
+            user_id: ID of the user.
 
         Returns:
-            Recipe: The found recipe instance.
+            The bookmarked recipe.
 
         Raises:
-            RecipeNotFoundError: If the recipe is not found.
+            BookmarkNotFoundError: If the user has not bookmarked this recipe.
+            RecipeNotFoundError: If the recipe no longer exists.
         """
-
-        # On teste si le bookmark existe bien donc on teste combinaison bookmark et user
-        # On récupère la recette et on la renvoie
 
         if not self.crud.read_bookmark(recipe_id, user_id):
             raise BookmarkNotFoundError()
@@ -71,6 +52,16 @@ class BookmarkService:
         return recipe
     
     def get_bookmarks_by_user(self, offset: int, limit: int, user_id: uuid.UUID) -> list[Recipe]:
+        """Return a page of the recipes the user bookmarked.
+
+        Args:
+            offset: Number of bookmarks to skip.
+            limit: Maximum number of bookmarks to return.
+            user_id: ID of the user.
+
+        Returns:
+            The bookmarked recipes.
+        """
         bookmarks = self.crud.read_bookmarks(offset, limit, user_id)
         recipes = []
         if bookmarks:
@@ -79,12 +70,35 @@ class BookmarkService:
         return recipes
 
     def create_bookmark_by_user(self, recipe_id: uuid.UUID, user_id: uuid.UUID) -> Recipe:
+        """Bookmark a recipe for the user.
+
+        Does not check first whether the recipe exists or is already bookmarked.
+
+        Args:
+            recipe_id: ID of the recipe.
+            user_id: ID of the user.
+
+        Returns:
+            The bookmarked recipe.
+        """
         bookmark = BookmarkCreate(recipe_id=recipe_id, user_id=user_id)
         db_bookmark = self.crud.create_bookmark(bookmark)
         db_recipe = self.recipe_service.get_recipe(db_bookmark.recipe_id)
         return db_recipe
     
     def delete_bookmark_by_user(self, recipe_id: uuid.UUID, user_id: uuid.UUID) -> dict:
+        """Remove the user's bookmark on a recipe.
+
+        Args:
+            recipe_id: ID of the recipe.
+            user_id: ID of the user.
+
+        Returns:
+            `{"ok": True}`.
+
+        Raises:
+            BookmarkNotFoundError: If the user has not bookmarked this recipe.
+        """
         db_bookmark = self.crud.read_bookmark(recipe_id, user_id)
         if not db_bookmark:
             raise BookmarkNotFoundError()

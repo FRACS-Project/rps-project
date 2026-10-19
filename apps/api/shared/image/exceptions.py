@@ -1,16 +1,10 @@
-##############################################################################################################
-#
-# Authentication Exceptions
-#
-# HTTPException subclasses used by the auth service layer for consistent API errors.
-#
-##############################################################################################################
+"""HTTP errors raised by the image service."""
 
 from fastapi import HTTPException, status
 
 
 class DuplicateImageError(HTTPException):
-    """Raised when an image is already uploaded."""
+    """409: the image was already uploaded. Not raised anywhere yet."""
 
     def __init__(self):
         super().__init__(
@@ -20,7 +14,7 @@ class DuplicateImageError(HTTPException):
 
 
 class ImageNotFoundError(HTTPException):
-    """Raised when an image lookup fails."""
+    """404: no image has this ID, or the recipe has no primary image."""
 
     def __init__(self):
         super().__init__(
@@ -29,7 +23,7 @@ class ImageNotFoundError(HTTPException):
         )
 
 class WrongImageType(HTTPException):
-    """Raised when an image is not image/png, image/jpeg or image/webp"""
+    """415: the file is not a JPEG, PNG or WebP image, or is not valid base64."""
 
     def __init__(self):
         super().__init__(

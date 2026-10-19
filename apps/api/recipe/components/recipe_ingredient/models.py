@@ -1,11 +1,4 @@
-##############################################################################################################
-#
-# Database models for recipe-ingredient relationships.
-#
-# This module defines the SQLModel classes for recipe-ingredient junction table,
-# including quantity and unit information for each recipe ingredient.
-#
-##############################################################################################################
+"""Recipe ingredient table model: one ingredient line of a recipe, with quantity and unit."""
 
 import uuid
 from enum import Enum
@@ -19,13 +12,7 @@ if TYPE_CHECKING:
 
 
 class Unit(str, Enum):
-    """Enumeration of measurement units for recipe ingredients.
-
-    Defines various units of measurement:
-    - Volume units: ML (milliliter), CL (centiliter), L (liter)
-    - Mass units: G (gram), KG (kilogram)
-    - Count units: PIECE, SPOON, PINCH
-    """
+    """Units allowed for an ingredient quantity."""
     ML = "ml"
     CL = "cl"
     L = "l"
@@ -37,13 +24,13 @@ class Unit(str, Enum):
 
 
 class RecipeIngredientBase(SQLModel):
-    """Base model for recipe-ingredient relationship.
+    """Fields shared by the recipe ingredient table and its schemas.
 
     Attributes:
-        quantity (float): The quantity of the ingredient required.
-        unit (Optional[Unit]): The unit of measurement for the quantity.
-        ingredient_id (UUID): Foreign key reference to the ingredient.
-        recipe_id (UUID): Foreign key reference to the recipe.
+        quantity: Amount of the ingredient, for the recipe's `base_serving`.
+        unit: Unit of the quantity; None for plain counts.
+        ingredient_id: ID of the ingredient.
+        recipe_id: ID of the recipe.
     """
     quantity: float
     unit: Unit | None = None
@@ -53,22 +40,12 @@ class RecipeIngredientBase(SQLModel):
 
 
 class RecipeIngredient(RecipeIngredientBase, table=True):
-    """Complete recipe-ingredient model for database storage.
-
-    Junction table linking recipes to ingredients with quantity and unit information.
-
-    Extends RecipeIngredientBase to include:
-    - Unique identifier
-    - Relationships to recipe and ingredient
+    """Recipe ingredient table. Deleted with its recipe.
 
     Attributes:
-        id (UUID): Unique identifier for this recipe-ingredient relationship.
-        quantity (float): The quantity of the ingredient required.
-        unit (Optional[Unit]): The unit of measurement for the quantity.
-        ingredient_id (UUID): Foreign key reference to the ingredient.
-        recipe_id (UUID): Foreign key reference to the recipe.
-        recipe (Recipe): Related recipe object.
-        ingredient (Ingredient): Related ingredient object.
+        id: Primary key.
+        recipe: The recipe this line belongs to.
+        ingredient: The ingredient used.
     """
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
 

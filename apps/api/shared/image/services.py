@@ -1,22 +1,14 @@
-##############################################################################################################
-#
-# Image Service Layer - Business Logic and Validation
-#
-# This module contains the service layer for Image management.
-# Services handle all business logic, validation, and coordinate between routes and CRUD.
-#
-# Architecture:
-#   - Receives requests from routes (HTTP layer)
-#   - Validates business rules (duplicates, existence)
-#   - Coordinates CRUD operations (database layer)
-#   - Handles error conditions with domain-specific exceptions
-#
-# Key Responsibilities:
-#   - Image creation with duplicate name checking
-#   - Image retrieval and pagination
-#   - Image updates and deletion with existence validation
-#
-##############################################################################################################
+"""Image service: image rows plus the files in `UPLOADS_DIR`.
+
+Saving recipe images happens in two steps so a failed request never
+leaves files without rows:
+
+1. Inside the recipe transaction, `sync_recipe_images_on_*` creates
+   PENDING rows for new images and marks removed images as PENDING.
+2. After the commit, `store_pending_recipe_images` writes the new files
+   and marks them ACTIVE, then `delete_pending_recipe_images` deletes
+   every image still PENDING (removed ones and failed writes).
+"""
 
 import uuid
 import base64
@@ -53,34 +45,38 @@ from ...utils import LimitQuery, OffsetQuery
 
 
 class ImageService:
-    """Service layer for Image management.
-
-    Handles all business logic related to Images including creation, validation,
-    and lifecycle operations. Coordinates between HTTP routes and database CRUD.
-    """
+    """Business logic for images and their files."""
 
     def __init__(self, db: Session):
-        """Initialize ImageService with database session.
+        """Initialize with a database session.
 
         Args:
-            db (Session): Database session for executing queries via CRUD layer.
+            db: Database session.
         """
         self.db = db
         self.crud = ImageCrud(self.db)
         self.logger = logging.getLogger(__name__)
 
     def create_image(self, image: ImageCreate) -> Image:
+        """Create an image row without committing."""
 
         return self.crud.pre_create_image(image)
 
     def create_recipe_image_by_user(self, image: ImageCreate) -> Image:
+        """Create an image row without committing. Same as `create_image`."""
 
         return self.crud.pre_create_image(image)
 
     def get_images(self, offset: OffsetQuery = 0, limit: LimitQuery = 100) -> list[Image]:
+        """Return a page of image rows."""
         return self.crud.read_images(offset, limit)
 
     def get_image(self, image_id: uuid.UUID) -> Image:
+        """Return an image row by ID.
+
+        Raises:
+            ImageNotFoundError: If no image has this ID.
+        """
         image = self.crud.read_image(image_id)
         if not image:
             raise ImageNotFoundError()
@@ -88,6 +84,14 @@ class ImageService:
         return image
 
     def get_images_by_recipe(self, recipe_id: uuid.UUID) -> list[ImagePublic]:
+        """Return the recipe's active images, with their files as base64.
+
+        Args:
+            recipe_id: ID of the recipe.
+
+        Returns:
+            The images, oldest first.
+        """
         db_images = self.crud.get_images_by_recipe_by_status(recipe_id, ImageStatus.ACTIVE)
         image_pub = []
 
@@ -103,6 +107,11 @@ class ImageService:
         return image_pub
 
     def get_primary_image_by_recipe(self, recipe_id: uuid.UUID) -> ImagePublic:
+        """Return the recipe's primary image, with its file as base64.
+
+        Raises:
+            ImageNotFoundError: If the recipe has no active primary image.
+        """
         db_images = self.crud.get_images_by_recipe_by_status(recipe_id, ImageStatus.ACTIVE)
 
         for image in db_images:
@@ -115,6 +124,11 @@ class ImageService:
         raise ImageNotFoundError()
 
     def update_image(self, image_id: uuid.UUID, image: ImageUpdate) -> Image:
+        """Partially update an image row and commit.
+
+        Raises:
+            ImageNotFoundError: If no image has this ID.
+        """
         db_image = self.crud.read_image(image_id)
         if not db_image:
             raise ImageNotFoundError()
@@ -124,6 +138,11 @@ class ImageService:
         return self.crud.update_image(db_image, image_data)
 
     def pre_update_image(self, image_id: uuid.UUID, image: ImageUpdate) -> Image:
+        """Partially update an image row without committing.
+
+        Raises:
+            ImageNotFoundError: If no image has this ID.
+        """
         db_image = self.crud.read_image(image_id)
         if not db_image:
             raise ImageNotFoundError()
@@ -133,13 +152,10 @@ class ImageService:
         return self.crud.pre_update_image(db_image, image_data)
 
     def delete_image(self, image_id: uuid.UUID) -> dict:
-        """Delete a Image by ID.
-
-        Args:
-            image_id (uuid.UUID): The unique identifier of the image.
+        """Delete an image row and commit. Does not delete the file.
 
         Raises:
-            ImageNotFoundError: If the Image is not found.
+            ImageNotFoundError: If no image has this ID.
         """
         db_image = self.crud.read_image(image_id)
         if not db_image:
@@ -149,6 +165,11 @@ class ImageService:
         return {"ok": True}
 
     def pre_delete_image(self, image_id: uuid.UUID) -> dict:
+        """Delete an image row without committing. Does not delete the file.
+
+        Raises:
+            ImageNotFoundError: If no image has this ID.
+        """
         db_image = self.crud.read_image(image_id)
         if not db_image:
             raise ImageNotFoundError()
@@ -157,13 +178,16 @@ class ImageService:
         return {"ok": True}
 
     def magic_validation(self, images: list[ImagePayload] | ImagePayload):
-        """Validate that the image has the proper type (image/jpeg, image/png, image/webp)
+        """Check that every new image is valid base64 of a JPEG, PNG or WebP file.
+
+        The type is read from the file content (libmagic), not from a name or
+        header sent by the client. Images without `new` are skipped.
 
         Args:
-            images (list[ImagePayload] | ImagePayload): Depends of the payload that was send (for recipe multiples images but for the profil picture it's only 1)
+            images: One image (e.g. a profile picture) or a recipe's list of images.
 
         Raises:
-            WrongImageType: Raise en exception if the type is not include in the list
+            WrongImageType: If the data is not valid base64 or not an allowed type.
         """
         allowed = {"image/jpeg", "image/png", "image/webp"}
         items = images if isinstance(images, list) else [images]
@@ -184,7 +208,16 @@ class ImageService:
             images: list[ImagePayload],
             user_id: uuid.UUID
     ) -> None:
-        """Add the images for a new recipe"""
+        """Create a PENDING row for each image of a new recipe. Does not commit.
+
+        Sets each payload's `id` to the new row's ID, so the files can be saved
+        under that name after the commit.
+
+        Args:
+            recipe_id: ID of the new recipe.
+            images: Images from the `NewRecipe` body.
+            user_id: ID of the uploader.
+        """
 
         for image in images:
             image.id = self.crud.pre_create_image(
@@ -200,6 +233,16 @@ class ImageService:
             db_recipe: Recipe,
             images: list[ImagePayload]
     ) -> None:
+        """Make the recipe's images match the payload. Does not commit.
+
+        Images missing from the payload are marked PENDING so they get deleted
+        after the commit. New images get a PENDING row, and their payload's `id`
+        is set to it.
+
+        Args:
+            db_recipe: Recipe being edited.
+            images: Full list of images from the `PatchRecipe` body.
+        """
         # Set ids for the images that are already in the recipe
         kept_image_ids = {
             image.id
@@ -231,6 +274,16 @@ class ImageService:
                 ).id
 
     def store_pending_recipe_images(self, images: list[ImagePayload], recipe_id: uuid.UUID):
+        """Write the new images' files and mark them ACTIVE. Call after the commit.
+
+        A file that fails to write is logged and left PENDING, so
+        `delete_pending_recipe_images` removes its row. The oldest active image
+        then becomes the primary one.
+
+        Args:
+            images: Payload images whose `id` was set by a `sync_*` method.
+            recipe_id: ID of the recipe.
+        """
    
         for image in images:
             if image.new:
@@ -244,6 +297,13 @@ class ImageService:
         self._make_primary_image(recipe_id)
 
     def delete_pending_recipe_images(self, recipe_id: uuid.UUID):
+        """Delete the recipe's PENDING images: file first, then row.
+
+        If a file cannot be deleted, the error is logged and the row is kept.
+
+        Args:
+            recipe_id: ID of the recipe.
+        """
         db_images = self.crud.get_images_by_recipe_by_status(recipe_id, ImageStatus.PENDING)
         for image in db_images:
             try:
@@ -254,6 +314,7 @@ class ImageService:
                 self.crud.delete_image(image)
 
     def _make_primary_image(self, recipe_id):
+        """Make the recipe's oldest active image the primary one, and unset the others."""
         db_images = self.crud.get_images_by_recipe_by_status(recipe_id, ImageStatus.ACTIVE)
         for i, image in enumerate(db_images):
             if i == 0:
@@ -268,5 +329,6 @@ class ImageService:
                 )
 
     def _store_image(self, image_base64: str, image_id: uuid.UUID):
+        """Decode the base64 data and write it to `UPLOADS_DIR/<image_id>`."""
         raw = base64.b64decode(image_base64, validate=True)
         Path(UPLOADS_DIR/str(image_id)).write_bytes(raw)

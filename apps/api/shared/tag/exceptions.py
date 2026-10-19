@@ -1,15 +1,9 @@
-##############################################################################################################
-#
-# Tag Exceptions
-#
-# HTTPException subclasses used by the Tag service layer for consistent API errors.
-#
-##############################################################################################################
+"""HTTP errors raised by the tag service."""
 
 from fastapi import HTTPException, status
 
 class DuplicateTagNameError(HTTPException):
-    """Raised when a tag name is already in use."""
+    """409: a tag with this name already exists."""
     def __init__(self):
         super().__init__(
             status_code=status.HTTP_409_CONFLICT,
@@ -17,7 +11,7 @@ class DuplicateTagNameError(HTTPException):
         )
 
 class TagNotFoundError(HTTPException):
-    """Raised when a tag lookup fails."""
+    """404: no tag has this ID or name."""
     def __init__(self):
         super().__init__(
             status_code=status.HTTP_404_NOT_FOUND,

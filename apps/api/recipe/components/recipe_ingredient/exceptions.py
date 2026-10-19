@@ -1,16 +1,10 @@
-##############################################################################################################
-#
-# Recipe Ingredient Exceptions
-#
-# HTTPException subclasses used by the recipe ingredient service layer for consistent API errors.
-#
-##############################################################################################################
+"""HTTP errors raised by the recipe ingredient service."""
 
 from fastapi import HTTPException, status
 
 
 class DuplicateRecipeIngredientError(HTTPException):
-	"""Raised when a recipe already contains the ingredient."""
+	"""409: the recipe already uses this ingredient."""
 
 	def __init__(self):
 		super().__init__(
@@ -20,7 +14,7 @@ class DuplicateRecipeIngredientError(HTTPException):
 
 
 class RecipeIngredientNotFoundError(HTTPException):
-	"""Raised when a recipe-ingredient lookup fails."""
+	"""404: no recipe ingredient has this ID."""
 
 	def __init__(self):
 		super().__init__(

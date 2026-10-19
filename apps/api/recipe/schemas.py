@@ -1,11 +1,10 @@
-##############################################################################################################
-#
-# Pydantic schemas for recipe data validation and serialization.
-#
-# This module defines the various schemas used for creating, updating, and
-# returning recipe data through the API endpoints.
-#
-##############################################################################################################
+"""Request and response schemas for recipes.
+
+`NewRecipe` and `PatchRecipe` are the user-facing bodies that carry the
+whole recipe (ingredients, tags, instructions, images) in one request.
+The nested schemas are imported at the bottom to avoid circular imports,
+then the models are rebuilt.
+"""
 
 from sqlmodel import Field
 from pydantic import field_validator
@@ -15,48 +14,40 @@ import uuid
 from . import RecipeBase
 
 class RecipeSchemaBase(RecipeBase):
+    """Base for recipe request bodies. Adds validation of the recipe name."""
 
     @field_validator("name")
     @classmethod
     def name_must_be_valid(cls, v: str) -> str:
+        """Strip spaces and allow only letters (accents included), digits, spaces, `'` and `-`."""
         v = v.strip()
         if not re.match(r"^[a-zA-ZÀ-ÿ0-9'\-\s]+$", v):
             raise ValueError("Name must only contain letters and spaces")
         return v
 
 class RecipePublic(RecipeBase):
-    """Schema for publicly viewable recipe data.
-    
+    """Recipe fields returned by the API, without related data.
+
     Attributes:
-        id (UUID): The recipe's unique identifier.
-        name (str): The recipe name.
-        preparation_time (int): Preparation time in minutes.
-        cooking_time (int): Cooking time in minutes.
-        description (str): Recipe description.
+        id: The recipe's ID.
+        owner_id: ID of the owner.
+        owner_name: Owner's username, when filled in.
     """
     id: uuid.UUID
     owner_id: uuid.UUID
     owner_name: str | None = None
 
 class RecipeCreate(RecipeSchemaBase):
-    """Schema for creating a new recipe.
-    
-    Inherits all base recipe fields that are required for creation.
+    """Recipe fields only, used to insert the recipe row.
+
+    Attributes:
+        owner_id: ID of the owner.
     """
     owner_id: uuid.UUID
 
 
 class RecipeUpdate(RecipeSchemaBase):
-    """Schema for updating recipe data.
-    
-    All fields are optional to allow partial updates.
-    
-    Attributes:
-        name (str, optional): The updated recipe name.
-        preparation_time (int, optional): Updated preparation time in minutes.
-        cooking_time (int, optional): Updated cooking time in minutes.
-        description (str, optional): Updated recipe description.
-    """
+    """Admin partial update of the recipe fields. Only the fields sent are changed."""
     name: str| None = None
     preparation_time: int| None = None
     cooking_time: int| None = None
@@ -65,16 +56,10 @@ class RecipeUpdate(RecipeSchemaBase):
 
 
 class RecipeUpdateAdmin(RecipeSchemaBase):
-    """Schema for updating recipe data.
-    
-    All fields are optional to allow partial updates.
-    
+    """Like `RecipeUpdate`, but can also change the owner. Not used by any route yet.
+
     Attributes:
-        name (str, optional): The updated recipe name.
-        preparation_time (int, optional): Updated preparation time in minutes.
-        cooking_time (int, optional): Updated cooking time in minutes.
-        description (str, optional): Updated recipe description.
-        owner_id (UUID, optional): Updated owner id.
+        owner_id: New owner ID.
     """
     name: str| None = None
     preparation_time: int| None = None
@@ -85,14 +70,13 @@ class RecipeUpdateAdmin(RecipeSchemaBase):
 
 
 class RecipePublicWithAll(RecipePublic):
-    """Extended recipe schema including all related data.
-    
-    Extends RecipePublic to include nested related information.
-    
+    """Recipe returned with all its related data.
+
     Attributes:
-        tags (list[TagPublic] | None): The tags for this recipe.
-        ingredients (list[RecipeIngredientPublicWithAll] | None): The ingredients in this recipe.
-        instructions (list[InstructionPublic] | None): The instructions for this recipe.
+        tags: Tags of the recipe.
+        ingredients: Ingredient lines, each with its ingredient.
+        instructions: Preparation steps.
+        images: Active images.
     """
     tags: list["TagPublic"] | None = None
     ingredients: list["RecipeIngredientPublicWithAll"] | None = None
@@ -101,12 +85,16 @@ class RecipePublicWithAll(RecipePublic):
 
 
 class NewRecipe(RecipeSchemaBase):
-    """Schema for creating a recipe with related entities.
+    """Body for creating a recipe with everything in one request.
+
+    Each tag and ingredient either references an existing one by ID or has
+    `new=True` and a name to create it.
 
     Attributes:
-        tags (list[TagRef]): Tags to associate with the recipe.
-        ingredients (list[NewRecipeIngredient]): Ingredients to attach to the recipe.
-        instructions (list[InstructionCreateTest]): Instructions for the recipe.
+        tags: At least one tag.
+        ingredients: At least one ingredient line.
+        instructions: At least one step.
+        images: Optional images as base64.
     """
     tags: list["TagRef"] = Field(min_length=1)
     ingredients: list["NewRecipeIngredient"] = Field(min_length=1)
@@ -114,12 +102,18 @@ class NewRecipe(RecipeSchemaBase):
     images: list["ImagePayload"] | None = None
 
 class PatchRecipe(RecipeSchemaBase):
-    """Schema for creating a recipe with related entities.
+    """Body for editing a recipe with everything in one request.
+
+    The recipe is replaced by what is sent: ingredient lines, instructions and
+    tags that are missing from the lists are removed. `images` works the same
+    way when sent; when it is omitted, images are left as they are.
 
     Attributes:
-        tags (list[TagRef]): Tags to associate with the recipe.
-        ingredients (list[NewRecipeIngredient]): Ingredients to attach to the recipe.
-        instructions (list[InstructionCreateTest]): Instructions for the recipe.
+        tags: Full list of tags to keep or create.
+        ingredients: Full list of ingredient lines; existing ones are matched
+            by `recipe_ingredient_id`.
+        instructions: Full list of steps; existing ones are matched by `id`.
+        images: Full list of images to keep (`id`) or add (`new` + base64).
     """
     name: str| None = None
     preparation_time: int| None = None

@@ -1,4 +1,5 @@
-"""Instruction module exports."""
+"""Instruction component: model and exceptions."""
+
 from .models import Instruction, InstructionBase
 from .exceptions import InstructionNotFoundError
 

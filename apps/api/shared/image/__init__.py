@@ -1,11 +1,11 @@
-"""Authentication module exports."""
+"""Image module: model, status enum and exceptions. Services and routers are imported directly to avoid circular imports."""
+
 from .models import Image, ImageBase, ImageStatus
 from .exceptions import (
     DuplicateImageError,
     ImageNotFoundError,
     WrongImageType,
 )
-# Services and routes are imported directly to avoid circular imports
 
 __all__ = [
     "Image",

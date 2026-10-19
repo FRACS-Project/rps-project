@@ -1,10 +1,10 @@
-"""Tag module exports."""
+"""Tag module: model and exceptions. Services and routers are imported directly to avoid circular imports."""
+
 from .models import Tag, TagBase
 from .exceptions import (
     DuplicateTagNameError,
     TagNotFoundError
 )
-# Services and router are imported directly to avoid circular imports
 
 __all__ = [
     "Tag",

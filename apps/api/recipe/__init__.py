@@ -1,5 +1,5 @@
-"""Recipe module exports."""
-# CRUD, Services and router are imported directly to avoid circular imports
+"""Recipe module: model and exceptions. CRUD, services and routers are imported directly to avoid circular imports."""
+
 from .models import Recipe, RecipeBase
 from .exceptions import (
     DuplicateRecipeNameError,
@@ -20,7 +20,7 @@ __all__ = [
     "NoTagInRecipeError",
     "NoIngredientInRecipeError",
     "NoInstructionInRecipeError",
-    "NoImageInRecipeError"
+    "NoImageInRecipeError",
     "EmptyRecipeUpdateError",
     "NotUserRecipeError",
 ]

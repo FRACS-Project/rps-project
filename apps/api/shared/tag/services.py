@@ -1,22 +1,9 @@
-##############################################################################################################
-#
-# Tag Service Layer - Business Logic and Validation
-#
-# This module contains the service layer for Tag management.
-# Services handle all business logic, validation, and coordinate between routes and CRUD.
-#
-# Architecture:
-#   - Receives requests from routes (HTTP layer)
-#   - Validates business rules (duplicates, existence)
-#   - Coordinates CRUD operations (database layer)
-#   - Handles error conditions with domain-specific exceptions
-#
-# Key Responsibilities:
-#   - Tag creation with duplicate name checking
-#   - Tag retrieval and pagination
-#   - Tag updates and deletion with existence validation
-#
-##############################################################################################################
+"""Tag service.
+
+Tag CRUD for the admin routes, plus the `sync_*` methods that
+`RecipeService` calls to link a recipe's tags (creating new ones when
+needed) inside its transaction.
+"""
 
 import uuid
 from sqlmodel import Session
@@ -41,32 +28,22 @@ from ...utils import LimitQuery, OffsetQuery
 
 
 class TagService:
-    """Service layer for Tag management.
-
-    Handles all business logic related to Tags including creation, validation,
-    and lifecycle operations. Coordinates between HTTP routes and database CRUD.
-    """
+    """Business logic for tags."""
 
     def __init__(self, db: Session):
-        """Initialize TagService with database session.
+        """Initialize with a database session.
 
         Args:
-            db (Session): Database session for executing queries via CRUD layer.
+            db: Database session.
         """
         self.db = db
         self.crud = TagCrud(self.db)
 
     def create_tag(self, tag: TagCreate) -> Tag:
-        """Create a new Tag with duplicate name validation.
-
-        Args:
-            tag (TagCreate): The tag data to create.
-
-        Returns:
-            Tag: The newly created tag.
+        """Create a tag and commit.
 
         Raises:
-            DuplicateTagNameError: If Tag name already exists.
+            DuplicateTagNameError: If a tag already has this name.
         """
         if self.crud.get_tag_by_name(tag.name):
             raise DuplicateTagNameError()
@@ -74,16 +51,10 @@ class TagService:
         return self.crud.create_tag(tag)
     
     def pre_create_tag(self, tag: TagCreate) -> Tag:
-        """Create a new Tag with duplicate name validation.
-
-        Args:
-            tag (TagCreate): The tag data to create.
-
-        Returns:
-            Tag: The newly created tag.
+        """Create a tag without committing. Used when saving a recipe.
 
         Raises:
-            DuplicateTagNameError: If Tag name already exists.
+            DuplicateTagNameError: If a tag already has this name.
         """
         if self.crud.get_tag_by_name(tag.name):
             raise DuplicateTagNameError()
@@ -91,28 +62,14 @@ class TagService:
         return self.crud.pre_create_tag(tag)
 
     def get_tags(self, offset: OffsetQuery = 0, limit: LimitQuery = 100) -> list[Tag]:
-        """Retrieve a paginated list of Tags.
-
-        Args:
-            offset (int): Number of tags to skip (for pagination).
-            limit (int): Maximum number of tags to return.
-
-        Returns:
-            List[Tag]: List of tags.
-        """
+        """Return a page of tags."""
         return self.crud.read_tags(offset, limit)
 
     def get_tag(self, tag_id: uuid.UUID) -> Tag:
-        """Retrieve a specific Tag by ID.
-
-        Args:
-            tag_id (uuid.UUID): The unique identifier of the tag.
-
-        Returns:
-            Tag: The found tag instance.
+        """Return a tag by ID.
 
         Raises:
-            TagNotFoundError: If the Tag is not found.
+            TagNotFoundError: If no tag has this ID.
         """
         tag = self.crud.read_tag(tag_id)
         if not tag:
@@ -121,16 +78,10 @@ class TagService:
         return tag
     
     def get_tag_by_name(self, name: str) -> Tag:
-        """Retrieve a specific Tag by name.
-
-        Args:
-            name (str): The name of the tag.
-
-        Returns:
-            Tag: The found tag instance.
+        """Return a tag by exact name.
 
         Raises:
-            TagNotFoundError: If the Tag is not found.
+            TagNotFoundError: If no tag has this name.
         """
         tag = self.crud.get_tag_by_name(name)
         if not tag:
@@ -139,17 +90,17 @@ class TagService:
         return tag
 
     def update_tag(self, tag_id: uuid.UUID, tag: TagUpdate) -> Tag:
-        """Update an existing Tag's information.
+        """Partially update a tag. Does not re-check name uniqueness.
 
         Args:
-            tag_id (uuid.UUID): The unique identifier of the tag.
-            tag (TagUpdate): The new tag data to apply.
+            tag_id: ID of the tag.
+            tag: Fields to change.
 
         Returns:
-            Tag: The updated tag instance.
+            The updated tag.
 
         Raises:
-            TagNotFoundError: If the Tag is not found.
+            TagNotFoundError: If no tag has this ID.
         """
         db_tag = self.crud.read_tag(tag_id)
         if not db_tag:
@@ -160,13 +111,13 @@ class TagService:
         return self.crud.update_tag(db_tag, tag_data)
 
     def delete_tag(self, tag_id: uuid.UUID) -> dict:
-        """Delete a Tag by ID.
+        """Delete a tag.
 
-        Args:
-            tag_id (uuid.UUID): The unique identifier of the tag.
+        Returns:
+            `{"ok": True}`.
 
         Raises:
-            TagNotFoundError: If the Tag is not found.
+            TagNotFoundError: If no tag has this ID.
         """
         db_tag = self.crud.read_tag(tag_id)
         if not db_tag:
@@ -176,7 +127,16 @@ class TagService:
         return {"ok": True}
 
     def sync_tags_on_create(self, recipe: Recipe, tags: list[TagRef]):
-        """Create all tags for a new recipe"""
+        """Link the tags of a new recipe, creating the `new` ones. Does not commit.
+
+        Args:
+            recipe: The new recipe.
+            tags: Tags from the `NewRecipe` body.
+
+        Raises:
+            TagNotFoundError: If a tag ID does not exist.
+            DuplicateTagNameError: If a `new` tag's name already exists.
+        """
         for tag in tags:
             if tag.new:
                 db_tag = self.pre_create_tag(
@@ -186,7 +146,19 @@ class TagService:
             recipe.tags.append(db_tag)
 
     def sync_tags_on_update(self, db_recipe: Recipe, tags: list[TagRef]) -> None:
-        """Update tags for existing recipe (delete removed, update/create others)."""
+        """Make the recipe's tags match the payload. Does not commit.
+
+        Tags missing from the payload are unlinked (the tags themselves are kept),
+        `new` tags are created, and the others are linked.
+
+        Args:
+            db_recipe: Recipe being edited.
+            tags: Full list of tags from the `PatchRecipe` body.
+
+        Raises:
+            TagNotFoundError: If a tag ID does not exist.
+            DuplicateTagNameError: If a `new` tag's name already exists.
+        """
         desired_tag_ids: set[uuid.UUID] = set()
 
         for tag in tags:
