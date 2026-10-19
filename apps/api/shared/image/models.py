@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 from enum import Enum
 
 from sqlmodel import SQLModel, Field, Relationship
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 
 if TYPE_CHECKING:
@@ -36,9 +36,13 @@ class Image(ImageBase, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
 
     date_created: datetime = Field(
-        default_factory=datetime.now, nullable=False
+        default_factory=lambda: datetime.now(timezone.utc),
+        nullable=False
     )
-    pending_date: datetime = Field(default_factory=lambda: datetime.now() + timedelta(hours=1), nullable=True)
+    pending_date: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc) + timedelta(hours=1),
+        nullable=True
+    )
 
     owner: "User" = Relationship(back_populates="images")
     owner_id: uuid.UUID = Field(foreign_key="user.id", nullable=False, ondelete="CASCADE")
