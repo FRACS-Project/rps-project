@@ -10,7 +10,7 @@
 import uuid
 from sqlmodel import Session, select
 
-from . import Image
+from . import Image, ImageStatus
 from .schemas import ImageCreate
 
 
@@ -135,3 +135,23 @@ class ImageCrud:
         """
         query = select(Image).where(Image.recipe_id == id).order_by(Image.date_created.asc())
         return self.db.exec(query.offset(offset).limit(limit)).all()
+
+    def get_images_by_recipe_by_status(
+            self,
+            id: uuid.UUID,
+            status: ImageStatus,
+            offset: int = 0,
+            limit: int = 100
+    ) -> list[Image]:
+                """Retrieve the list of images for a recipe.
+        
+                Args:
+                    name (str): The name of the image to search for.
+        
+                Returns:
+                    Image | None: The found image instance or None if not found.
+                """
+                query = (select(Image)
+                    .where(Image.recipe_id == id, Image.status == status)
+                    .order_by(Image.date_created.asc()))
+                return self.db.exec(query.offset(offset).limit(limit)).all()
