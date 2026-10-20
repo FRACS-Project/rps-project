@@ -5,7 +5,7 @@
 """
 
 import uuid
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlmodel import Session
 
 from .schemas import (
@@ -34,7 +34,7 @@ from ..core import get_current_admin_user, get_current_active_user
 router = APIRouter(
     prefix="/recipe",
     tags=["Recipe"],
-    # dependencies=[Depends(get_current_active_user)]
+    dependencies=[Depends(get_current_active_user)]
 )
 
 
@@ -124,8 +124,10 @@ def delete_my_recipe(
 
 
 @router.post("/", response_model=RecipePublic, dependencies=[Depends(get_current_admin_user)])
-def create_recipe(recipe: RecipeCreate,
-                  session: Session = Depends(get_session)):
+def create_recipe(
+        recipe: RecipeCreate,
+        session: Session = Depends(get_session)
+):
     """Admin: create a recipe row for any owner, without related data.
 
     Raises:
@@ -139,7 +141,8 @@ def create_recipe(recipe: RecipeCreate,
 def get_recipes(
         offset: OffsetQuery = DEFAULT_OFFSET,
         limit: LimitQuery = DEFAULT_LIMIT,
-        session: Session = Depends(get_session)):
+        session: Session = Depends(get_session)
+):
     """List recipes from all users, paginated with `offset` and `limit`."""
     service = RecipeService(session)
     return service.get_recipes(offset, limit)
@@ -148,7 +151,8 @@ def get_recipes(
 @router.get("/{recipe_id}", response_model=RecipePublicWithAll)
 def get_recipe(
         recipe_id: uuid.UUID,
-        session: Session = Depends(get_session)):
+        session: Session = Depends(get_session)
+):
     """Get any recipe by ID.
 
     Raises:
@@ -162,7 +166,8 @@ def get_recipe(
 @router.get("/{recipe_id}/images", response_model=list[ImagePublic])
 def get_recipe_images(
         recipe_id: uuid.UUID,
-        session: Session = Depends(get_session)):
+        session: Session = Depends(get_session)
+):
     """List the recipe's active images."""
 
     service = RecipeService(session)
@@ -173,7 +178,8 @@ def get_recipe_images(
 @router.get("/{recipe_id}/images/primary", response_model=ImagePublic)
 def get_recipe_image_primary(
         recipe_id: uuid.UUID,
-        session: Session = Depends(get_session)):
+        session: Session = Depends(get_session)
+):
     """Get the recipe's primary image.
 
     Raises:
@@ -185,11 +191,16 @@ def get_recipe_image_primary(
     return service.get_recipe_image_primary(recipe_id)
 
 
-@router.patch("/{recipe_id}", response_model=RecipePublicWithAll, dependencies=[Depends(get_current_admin_user)])
+@router.patch(
+        "/{recipe_id}",
+        response_model=RecipePublicWithAll,
+        dependencies=[Depends(get_current_admin_user)]
+)
 def update_recipe(
         recipe_id: uuid.UUID,
         recipe: RecipeUpdate,
-        session: Session = Depends(get_session)):
+        session: Session = Depends(get_session)
+):
     """Admin: partially update any recipe's fields. Only the fields sent are changed.
 
     Raises:
@@ -204,7 +215,8 @@ def update_recipe(
 @router.delete("/{recipe_id}", dependencies=[Depends(get_current_admin_user)])
 def delete_recipe(
         recipe_id: uuid.UUID,
-        session: Session = Depends(get_session)):
+        session: Session = Depends(get_session)
+):
     """Admin: delete any recipe.
 
     Raises:

@@ -29,7 +29,7 @@ from ..utils import (
 user_router = APIRouter(
     prefix="/users",
     tags=["User"],
-    # dependencies=[Depends(get_current_admin_user)]
+    dependencies=[Depends(get_current_admin_user)]
 )
 
 
