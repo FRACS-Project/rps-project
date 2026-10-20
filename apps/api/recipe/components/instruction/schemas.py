@@ -68,10 +68,10 @@ class PatchInstruction(BaseModel):
         is_new = self.new is True
 
         if has_id and is_new:
-            raise ValueError("Provide either instruction_id (existing) or new=true (new instruction), not both.")
-        if is_new and has_id:
-            raise ValueError("When new=true, instruction_id must be absent.")
+            raise ValueError("Provide either id (existing) or new=true (new instruction), not both.")
         if not is_new and not has_id:
-            raise ValueError("When new=false, instruction_id is required.")
+            raise ValueError(
+                "You have to provide at least one, either id (existing) or new=true (new instruction)."
+            )
 
         return self
