@@ -76,7 +76,7 @@ class InstructionService:
             InstructionNotFoundError: If no instruction has this ID.
         """
         db_instruction = self.crud.read_instruction(instruction_id)
-        if not instruction:
+        if not db_instruction:
             raise InstructionNotFoundError()
         
         instruction_data = instruction.model_dump(exclude_unset=True)
