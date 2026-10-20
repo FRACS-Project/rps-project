@@ -6,6 +6,51 @@ from pydantic import field_validator, Field
 
 from . import UserBase
 
+def check_password_strength(v: str) -> str:
+    """Require 12+ characters with an uppercase letter, a lowercase letter, a digit 
+    and a special character.
+    """
+    # Dev mode: allow "azerty" to bypass validation
+    if v == "azerty" or v == "qsdfg":
+        return v
+
+    if len(v) < 12 or len(v) > 72:
+        raise ValueError("Password must be at least 10 characters")
+    if not re.search(r"[A-Z]", v):
+        raise ValueError("Password must contain uppercase letter")
+    if not re.search(r"[a-z]", v):
+        raise ValueError("Password must contain lowercase letter")
+    if not re.search(r"[0-9]", v):
+        raise ValueError("Password must contain digit")
+    if not re.search(r"[^A-Za-z0-9]", v):
+        raise ValueError("Password must contain special character")
+    return v
+
+
+def check_username(v: str) -> str:
+    """Strip spaces and check the username format.
+
+    Rules: 3 to 50 characters; only letters, digits, `-` and `_`; no `--` or `__`.
+    """
+    # Remove leading/trailing spaces
+    v = v.strip()
+
+    if len(v) < 3:
+        raise ValueError("Username must be at least 3 characters")
+    if len(v) > 50:
+        raise ValueError("Username cannot exceed 50 characters")
+
+    # Only alphanumeric, dash, underscore
+    if not all(c.isalnum() or c in "-_" for c in v):
+        raise ValueError("Username can only contain letters, numbers, dashes, and underscores")
+
+    # No consecutive dashes/underscores
+    if "--" in v or "__" in v:
+        raise ValueError(
+            "Username cannot have consecutive special characters")
+
+    return v
+
 
 class UserPublic(UserBase):
     """User data returned by the API. Never includes the password hash.
@@ -30,23 +75,10 @@ class UserCreate(UserBase):
     @field_validator("password")
     @classmethod
     def validate_password_strength(cls, v: str) -> str:
-        """Require 10+ characters with an uppercase letter, a lowercase letter and a digit.
-
-        The dev passwords "azerty" and "qsdfg" skip these checks.
+        """Require 12+ characters with an uppercase letter, a lowercase letter, a digit 
+        and a special character.
         """
-        # Dev mode: allow "azerty" to bypass validation
-        if v == "azerty" or v == "qsdfg":
-            return v
-
-        if len(v) < 10:
-            raise ValueError("Password must be at least 10 characters")
-        if not re.search(r"[A-Z]", v):
-            raise ValueError("Password must contain uppercase letter")
-        if not re.search(r"[a-z]", v):
-            raise ValueError("Password must contain lowercase letter")
-        if not re.search(r"[0-9]", v):
-            raise ValueError("Password must contain digit")
-        return v
+        return check_password_strength(v)
 
     @field_validator("name")
     @classmethod
@@ -55,25 +87,7 @@ class UserCreate(UserBase):
 
         Rules: 3 to 50 characters; only letters, digits, `-` and `_`; no `--` or `__`.
         """
-        # Remove leading/trailing spaces
-        v = v.strip()
-
-        if len(v) < 3:
-            raise ValueError("Username must be at least 3 characters")
-        if len(v) > 50:
-            raise ValueError("Username cannot exceed 50 characters")
-
-        # Only alphanumeric, dash, underscore
-        if not all(c.isalnum() or c in "-_" for c in v):
-            raise ValueError(
-                "Username can only contain letters, numbers, dashes, and underscores")
-
-        # No consecutive dashes/underscores
-        if "--" in v or "__" in v:
-            raise ValueError(
-                "Username cannot have consecutive special characters")
-
-        return v
+        return check_username(v)
 
     @field_validator("mail", mode="after")
     @classmethod
@@ -99,11 +113,24 @@ class UserUpdate(UserBase):
     def validate_new_password(cls, v: str) -> str:
         """Check the new password's length, if one is sent. Only the length rule is applied."""
         if v is not None:  # Only check if provided
-            # Same validation as UserCreate
-            if len(v) < 10:
-                raise ValueError("Password must be at least 10 characters")
-            # ... other checks
+            return check_password_strength(v)
         return v
+
+    @field_validator("name")
+    @classmethod
+    def validate_username(cls, v: str) -> str:
+        """Strip spaces and check the username format.
+
+        Rules: 3 to 50 characters; only letters, digits, `-` and `_`; no `--` or `__`.
+        """
+        return check_username(v)
+        
+
+    @field_validator("mail", mode="after")
+    @classmethod
+    def normalize_email(cls, v: str) -> str:
+        """Lowercase the email and strip spaces."""
+        return v.lower().strip()
 
 
 class UserSignUp(UserBase):
