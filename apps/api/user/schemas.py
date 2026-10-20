@@ -14,8 +14,10 @@ def check_password_strength(v: str) -> str:
     if v == "azerty" or v == "qsdfg":
         return v
 
-    if len(v) < 12 or len(v) > 72:
-        raise ValueError("Password must be at least 10 characters")
+    if len(v) < 12:
+        raise ValueError("Password must be at least 12 characters")
+    if len(v) > 72:
+        raise ValueError("Password cannot exceed 72 characters")
     if not re.search(r"[A-Z]", v):
         raise ValueError("Password must contain uppercase letter")
     if not re.search(r"[a-z]", v):
@@ -78,7 +80,7 @@ class UserCreate(UserBase):
         """Require 12+ characters with an uppercase letter, a lowercase letter, a digit 
         and a special character.
         """
-        return check_password_strength(v)
+        return check_password_strength(v) if v is not None else v
 
     @field_validator("name")
     @classmethod
@@ -87,13 +89,13 @@ class UserCreate(UserBase):
 
         Rules: 3 to 50 characters; only letters, digits, `-` and `_`; no `--` or `__`.
         """
-        return check_username(v)
+        return check_username(v) if v is not None else v
 
     @field_validator("mail", mode="after")
     @classmethod
     def normalize_email(cls, v: str) -> str:
         """Lowercase the email and strip spaces."""
-        return v.lower().strip()
+        return v.lower().strip() if v is not None else v
 
 
 class UserUpdate(UserBase):
@@ -111,10 +113,10 @@ class UserUpdate(UserBase):
     @field_validator("password")
     @classmethod
     def validate_new_password(cls, v: str) -> str:
-        """Check the new password's length, if one is sent. Only the length rule is applied."""
-        if v is not None:  # Only check if provided
-            return check_password_strength(v)
-        return v
+        """Require 12+ characters with an uppercase letter, a lowercase letter, a digit 
+        and a special character.
+        """
+        return check_password_strength(v) if v is not None else v
 
     @field_validator("name")
     @classmethod
@@ -123,14 +125,14 @@ class UserUpdate(UserBase):
 
         Rules: 3 to 50 characters; only letters, digits, `-` and `_`; no `--` or `__`.
         """
-        return check_username(v)
+        return check_username(v) if v is not None else v
         
 
     @field_validator("mail", mode="after")
     @classmethod
     def normalize_email(cls, v: str) -> str:
         """Lowercase the email and strip spaces."""
-        return v.lower().strip()
+        return v.lower().strip() if v is not None else v
 
 
 class UserSignUp(UserBase):
