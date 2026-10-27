@@ -1,4 +1,8 @@
+import os
 import pytest
+from jose import jwt
+SECRET_KEY = os.getenv("SECRET_KEY")
+ALGORITHM = os.getenv("ALGORITHM")
 
 def test_signup(client):
     user_data = {
@@ -41,12 +45,21 @@ def test_signup_cannot_create_admin(client):
 @pytest.mark.usefixtures("registered_user")
 def test_login(client, login): 
    
-    response = client.post("/auth/login-json", json={"mail": login, "password": "TestPassword123!"})
-    data = response.json()
+    response_login = client.post(
+        "/auth/login-json",
+        json={"mail": login, "password": "TestPassword123!"}
+    )
 
-    print(data)
+    login_data = response_login.json()
 
-    assert response.status_code == 200, response.json()
+    response_me = client.post("/auth/me-json", login_data)
+
+    assert response_login.status_code == 200, login_data
+
+    
+    payload = jwt.decode(login_data["access_token"], SECRET_KEY, algorithms=ALGORITHM)
+    print(payload)
+
 
 
 @pytest.mark.parametrize("login, password", [
