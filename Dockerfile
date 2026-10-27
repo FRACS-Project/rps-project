@@ -8,9 +8,8 @@ ENV UV_LINK_MODE=copy \
 
 WORKDIR /app
 
-# We copy .toml and not uv.lock because has librairy personnalized for my computer
-COPY pyproject.toml ./
-RUN uv sync --no-dev --no-editable --no-install-project
+COPY pyproject.toml uv.lock ./
+RUN uv sync --locked --no-dev --no-editable --no-install-project
 
 FROM python:3.12-slim AS runtime
 
