@@ -15,6 +15,7 @@ services:
       retries: 5
     networks:
       - rps-network
+    restart: unless-stopped
 
   # FastAPI Backend
   backend:
@@ -30,7 +31,7 @@ services:
     expose:
       - "8000"  # Don't expose directly to host
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/docs')"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthy')"]
       interval: 30s
       timeout: 10s
       retries: 3
