@@ -97,9 +97,9 @@ class UserService:
         user_data = {
             "name": user.name,
             "mail": user.mail,
-            "admin": user.admin,
+            "admin": False,
             "hashed_password": hashed_password,
-            "disabled": user.disabled
+            "disabled": False
         }
 
         # Call CRUD to insert into database
