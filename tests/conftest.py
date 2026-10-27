@@ -9,6 +9,7 @@ os.environ["DATABASE_URL"] = "sqlite://"
 os.environ["SECRET_KEY"] = "test-secret-key-not-for-production-0000"
 os.environ["ALGORITHM"] = "HS256"
 os.environ["ACCESS_TOKEN_EXPIRE_MINUTES"] = "30"
+os.environ["ENVIRONMENT"] = "development"
 
 from apps.api.main import app
 from apps.api.db import get_session

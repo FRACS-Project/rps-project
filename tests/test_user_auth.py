@@ -38,7 +38,7 @@ def test_signup_cannot_create_admin(client):
     data = response.json()
 
     assert response.status_code == 200, response.json()
-    assert data["admin"] is True
+    assert data["admin"] is False
 
 
 @pytest.mark.parametrize("login", ["test@example.com", "testuser"])
@@ -52,13 +52,13 @@ def test_login(client, login):
 
     login_data = response_login.json()
 
-    response_me = client.post("/auth/me-json", login_data)
+    # response_me = client.post("/auth/me-json", login_data)
 
     assert response_login.status_code == 200, login_data
 
     
     payload = jwt.decode(login_data["access_token"], SECRET_KEY, algorithms=ALGORITHM)
-    print(payload)
+    # print(payload)
 
 
 
