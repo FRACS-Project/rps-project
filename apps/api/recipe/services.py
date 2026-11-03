@@ -366,8 +366,12 @@ class RecipeService:
             NotUserRecipeError: If the recipe belongs to another user.
         """
         db_recipe = self._get_owned_recipe(recipe_id, user_id)
+        image_ids = [image.id for image in db_recipe.images]
 
         self.crud.delete_recipe(db_recipe)
+
+        self.image_service.unstore_deleted_images(image_ids)
+
         return {"ok": True}
 
     # ── Private: Validation ─────────────────────────────────────────────────────────────────────────────────────────────────

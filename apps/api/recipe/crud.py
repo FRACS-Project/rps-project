@@ -52,7 +52,7 @@ class RecipeCrud:
                                      user_id).offset(offset).limit(limit)
         return self.db.exec(query).all()
 
-    def create_recipe(self, recipe: RecipeCreate, mod: str) -> Recipe:
+    def create_recipe(self, recipe: RecipeCreate) -> Recipe:
         """Insert a recipe and commit.
 
         Args:

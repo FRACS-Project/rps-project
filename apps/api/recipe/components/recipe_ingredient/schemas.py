@@ -31,10 +31,10 @@ class RecipeIngredientUpdate(RecipeIngredientBase):
     """Partial update of a recipe ingredient line. Only the fields sent are changed.
 
     Attributes:
-        quantity: New amount. Typed `int`, unlike the float on the model.
+        quantity: New amount.
     """
     unit: Unit | None = None
-    quantity: int | None = None
+    quantity: float | None = None
 
     ingredient_id: uuid.UUID | None = None
     recipe_id: uuid.UUID | None = None

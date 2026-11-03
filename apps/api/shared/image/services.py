@@ -313,8 +313,22 @@ class ImageService:
             else:
                 self.crud.delete_image(image)
 
-    def _make_primary_image(self, recipe_id):
-        """Make the recipe's oldest active image the primary one, and unset the others."""
+    def unstore_deleted_images(self, image_ids: list[uuid.UUID]):
+        """Remove the deleted images files from the disk. Call this after
+        the commit and failures are logged rather than raised.
+
+        Args:
+            image_ids (list[uuid.UUID]): The ids of the images
+        """
+        for id in image_ids:
+            self._unstore_image(id)
+
+    def _make_primary_image(self, recipe_id: uuid.UUID):
+        """Make the recipe's oldest active image the primary one, and unset the others.
+
+        Args:
+            recipe_id (uuid.UUID): The id of the recipe
+        """
         db_images = self.crud.get_images_by_recipe_by_status(recipe_id, ImageStatus.ACTIVE)
         for i, image in enumerate(db_images):
             if i == 0:
@@ -332,3 +346,10 @@ class ImageService:
         """Decode the base64 data and write it to `UPLOADS_DIR/<image_id>`."""
         raw = base64.b64decode(image_base64, validate=True)
         Path(UPLOADS_DIR/str(image_id)).write_bytes(raw)
+
+    def _unstore_image(self, image_id: uuid.UUID):
+        """Delete the stored image from `UPLOADS_DIR/<image_id>`."""
+        try:
+            Path(UPLOADS_DIR/str(image_id)).unlink(missing_ok=True)
+        except OSError:
+            self.logger.exception("Failed to delete image %s", image_id)
