@@ -8,6 +8,7 @@ from ...recipe.schemas import (
     RecipePublicWithAll
 )
 
+from .schemas import BookmarkCreate
 from .services import BookmarkService
 
 from ...utils import (
@@ -24,20 +25,20 @@ from ...core import get_current_active_user
 router = APIRouter(
     prefix="/bookmark",
     tags=["Bookmark"],
-    # dependencies=[Depends(get_current_active_user)]
+    dependencies=[Depends(get_current_active_user)]
 )
 
 
 @router.post("/me", response_model=RecipePublicWithAll)
 def create_bookmark(
-        recipe_id: uuid.UUID,
+        bookmark: BookmarkCreate,
         session: Session = Depends(get_session),
         current_user: UserPublic = Depends(get_current_active_user)
 ):
-    """Bookmark a recipe. `recipe_id` is a query parameter. Returns the recipe."""
+    """Bookmark a recipe. Returns the recipe."""
 
     service = BookmarkService(session)
-    return service.create_bookmark_by_user(recipe_id, current_user.id)
+    return service.create_bookmark_by_user(bookmark.recipe_id, current_user.id)
 
 
 @router.get("/me", response_model=list[RecipePublicWithAll])
