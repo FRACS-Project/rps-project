@@ -7,11 +7,11 @@ than the bookmark rows.
 import uuid
 from sqlmodel import Session
 
-from . import BookmarkNotFoundError
+from . import BookmarkNotFoundError, DuplicateBookmarkError
 from .schemas import BookmarkCreate
 from .crud import BookmarkCrud
 
-from ...recipe import Recipe
+from ...recipe import Recipe, RecipeNotFoundError
 from ...recipe.services import RecipeService
 
 class BookmarkService:
@@ -72,8 +72,6 @@ class BookmarkService:
     def create_bookmark_by_user(self, recipe_id: uuid.UUID, user_id: uuid.UUID) -> Recipe:
         """Bookmark a recipe for the user.
 
-        Does not check first whether the recipe exists or is already bookmarked.
-
         Args:
             recipe_id: ID of the recipe.
             user_id: ID of the user.
@@ -81,9 +79,12 @@ class BookmarkService:
         Returns:
             The bookmarked recipe.
         """
-        bookmark = BookmarkCreate(recipe_id=recipe_id, user_id=user_id)
-        db_bookmark = self.crud.create_bookmark(bookmark)
-        db_recipe = self.recipe_service.get_recipe(db_bookmark.recipe_id)
+        db_recipe = self.recipe_service.get_recipe(recipe_id)
+        if self.crud.read_bookmark(recipe_id, user_id):
+            raise DuplicateBookmarkError()
+        self.crud.create_bookmark(
+            BookmarkCreate(recipe_id=recipe_id, user_id=user_id)
+        )
         return db_recipe
     
     def delete_bookmark_by_user(self, recipe_id: uuid.UUID, user_id: uuid.UUID) -> dict:

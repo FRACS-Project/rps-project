@@ -1,6 +1,7 @@
 """Request and response schemas for bookmarks."""
 
 import uuid
+from pydantic import BaseModel
 
 from . import Bookmark
 
@@ -9,7 +10,8 @@ class BookmarkPublic(Bookmark):
     pass
 
 
-class BookmarkCreate(Bookmark):
+class BookmarkCreate(BaseModel):
     """Bookmark fields used to insert a row: `recipe_id` and `user_id`."""
-    pass
+    recipe_id: uuid.UUID
+    user_id: uuid.UUID | None = None
 
