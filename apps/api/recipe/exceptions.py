@@ -19,36 +19,36 @@ class RecipeNotFoundError(HTTPException):
         )
 
 class NoTagInRecipeError(HTTPException):
-    """404: the payload has no tags, or a tag has neither an ID nor a new name."""
+    """422: the payload has no tags, or a tag has neither an ID nor a new name."""
     def __init__(self):
         super().__init__(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="Tag not found in the recipe"
         )
 
 
 class NoIngredientInRecipeError(HTTPException):
-    """404: the payload has no usable ingredient (none with an ID or a name)."""
+    """422: the payload has no usable ingredient (none with an ID or a name)."""
     def __init__(self):
         super().__init__(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="Ingredient not found in the recipe"
         )
 
 
 class NoInstructionInRecipeError(HTTPException):
-    """404: the payload has no instructions, or one has neither an ID nor a title and details."""
+    """422: the payload has no instructions, or one has neither an ID nor a title and details."""
     def __init__(self):
         super().__init__(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="Instructions not found in the recipe"
         )
 
 class NoImageInRecipeError(HTTPException):
-    """404: an image in the payload has neither an ID nor new base64 data."""
+    """422: an image in the payload has neither an ID nor new base64 data."""
     def __init__(self):
         super().__init__(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="Images not found in the recipe"
         )
 

@@ -123,6 +123,7 @@ class PatchRecipe(RecipeSchemaBase):
     ingredients: list["PatchRecipeIngredient"] | None = None
     instructions: list["PatchInstruction"] | None = None
     images: list["ImagePayload"] | None = None
+    base_serving: int | None = None
 
 
 from .components.recipe_ingredient.schemas import RecipeIngredientPublicWithAll, NewRecipeIngredient, PatchRecipeIngredient
