@@ -1,29 +1,22 @@
-import os
 import pytest
 from jose import jwt
-SECRET_KEY = os.getenv("SECRET_KEY")
-ALGORITHM = os.getenv("ALGORITHM")
+import datetime as dt
+from apps.api.config import settings
 
-def test_signup(client):
-    user_data = {
-        "name": "testuser2",
-        "mail": "test2@example.com",
-        "password": "TestPassword123!",
-    }
+def test_signup(client, mock_user_data):
 
     # Act
-    response = client.post("/auth/signup", json=user_data)
-    data = response.json()
+    response = client.post("/auth/signup", json=mock_user_data)
 
     # Assert
     assert response.status_code == 200, response.json()
-    assert data["name"] == user_data["name"]
-    assert data["mail"] == user_data["mail"]
-    assert data["admin"] is False
-    assert data["disabled"] is False
-    assert data["id"]
-    assert "password" not in data
-    assert "hashed_password" not in data
+    assert response.json()["name"] == mock_user_data["name"]
+    assert response.json()["mail"] == mock_user_data["mail"]
+    assert response.json()["admin"] is False
+    assert response.json()["disabled"] is False
+    assert response.json()["id"]
+    assert "password" not in response.json()
+    assert "hashed_password" not in response.json()
 
 
 def test_signup_cannot_create_admin(client):
@@ -35,10 +28,9 @@ def test_signup_cannot_create_admin(client):
     }
 
     response = client.post("/auth/signup", json=user_data)
-    data = response.json()
 
     assert response.status_code == 200, response.json()
-    assert data["admin"] is False
+    assert response.json()["admin"] is False
 
 
 @pytest.mark.parametrize("login", ["test@example.com", "testuser"])
@@ -57,8 +49,13 @@ def test_login(client, login):
     assert response_login.status_code == 200, login_data
 
     
-    payload = jwt.decode(login_data["access_token"], SECRET_KEY, algorithms=ALGORITHM)
-    # print(payload)
+    payload = jwt.decode(
+        login_data["access_token"],
+        settings.secret_key,
+        algorithms=settings.algorithm
+    )
+    print(payload["exp"])
+    dt.timedelta(minutes=30, seconds=5)
 
 
 
@@ -72,4 +69,4 @@ def test_login_fail(client, login, password):
 
     response = client.post("/auth/login-json", json={"mail": login, "password": password})
 
-    assert response.status_code == 401
+    assert response.status_code == 401, response.json()
