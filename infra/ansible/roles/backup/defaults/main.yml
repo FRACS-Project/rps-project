@@ -1,0 +1,8 @@
+---
+backup_keep_days: 7
+backup_hour: "3"
+backup_minute: "0"
+backup_helper_image: alpine:3.22
+backup_name: "{{ app_project_name }}-backup"
+backup_script_path: "/usr/local/bin/{{ backup_name }}"
+backup_dir: "/var/backups/rps-project/{{ env_name }}"

@@ -1,0 +1,3 @@
+tailscale_arch: amd64
+tailscale_repo_url: https://pkgs.tailscale.com/stable/ubuntu
+tailscale_key_url: "{{ tailscale_repo_url }}/{{ ansible_facts['distribution_release'] }}.noarmor.gpg"

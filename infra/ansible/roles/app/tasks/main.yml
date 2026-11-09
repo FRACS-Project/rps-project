@@ -1,0 +1,29 @@
+---
+- name: Get the code
+  ansible.builtin.git:
+    repo: "{{ app_repo }}"
+    dest: "{{ app_dir }}"
+    version: "{{ app_repo_version }}"
+  register: app_git
+
+- name: Show what was deployed
+  ansible.builtin.debug:
+    msg: "{{ app_git.before | default('none', true) }} → {{ app_git.after }}"
+  when: app_git.changed
+
+- name: Write .env
+  ansible.builtin.template:
+    src: env.j2
+    dest: "{{ app_dir }}/.env"
+    mode: "0600"
+  diff: false
+
+- name: Start or update the stack
+  community.docker.docker_compose_v2:
+    project_src: "{{ app_dir }}"
+    project_name: "{{ app_project_name }}"
+    files: "{{ app_compose_files }}"
+    build: "{{ 'always' if app_git.changed else 'policy' }}"
+    state: present
+    wait: true
+    wait_timeout: 120

@@ -1,0 +1,10 @@
+---
+app_repo: https://github.com/FRACS-Project/rps-project
+app_repo_version: main
+app_compose_files: 
+  - docker-compose.yml
+app_algorithm: HS256
+app_access_token_expire_minutes: 60
+app_environment: production
+app_bind_ip: 127.0.0.1
+app_web_port: 8080
