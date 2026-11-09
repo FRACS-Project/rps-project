@@ -1,0 +1,19 @@
+---
+env_name: dev
+app_dir: "/home/{{ ansible_user }}/rps-project/{{ env_name }}"
+app_project_name: "rps-project-{{ env_name }}"
+db_user: rps_user_dev
+db_name: rps_db_dev
+db_password: "{{ vault_db_password }}"
+
+app_repo_version: develop
+app_bind_ip: 0.0.0.0
+app_web_port: 8081
+app_secret_key: "{{ vault_app_secret_key }}"
+app_environment: staging
+app_compose_files:
+  - docker-compose.yml
+  - docker-compose.override.yml
+
+ssh_from: 192.168.1.0/24
+server_ip: 192.168.1.253

@@ -1,0 +1,5 @@
+---
+hardening_ssh_allowed_from: "{{ ssh_from }}"
+hardening_ssh_allowed_to: "{{ server_ip }}"
+hardening_ssh_port: "{{ ssh_port | default('22') }}"
+hardening_ufw_enabled: true

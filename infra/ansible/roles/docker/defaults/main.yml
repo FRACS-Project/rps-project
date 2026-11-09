@@ -1,0 +1,9 @@
+---
+docker_arch: amd64
+docker_daemon_config:
+  log-driver: json-file
+  log-opts:
+    max-size: 10m
+    max-file: "3"
+docker_repo_url: https://download.docker.com/linux/ubuntu
+docker_key_url: "{{ docker_repo_url }}/gpg"

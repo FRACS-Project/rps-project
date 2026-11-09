@@ -1,0 +1,5 @@
+---
+ansible_user: sapjo-lab
+ansible_become_password: "{{ vault_become_password }}"
+ssh_port: "2222"
+hardening_ufw_enabled: false

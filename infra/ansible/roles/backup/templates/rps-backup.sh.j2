@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# {{ ansible_managed }}
+# Nightly backup of the RPS stack: database dump + uploads volume.
+set -euo pipefail
+umask 077                                  # new files readable by root only
+
+backup_dir="{{ backup_dir }}"
+stamp="$(date +%F_%H%M)"                   # e.g. 2026-11-09_0300
+
+# If a step fails, its unfinished .part file is removed when the script exits.
+trap 'rm -f "$backup_dir"/*.part' EXIT
+
+cd "{{ app_dir }}"
+
+# 1. Database: pg_dump runs inside the db container and writes to stdout.
+docker compose -p "{{ app_project_name }}" exec -T db \
+  sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc' \
+  > "$backup_dir/db-$stamp.dump.part"
+mv "$backup_dir/db-$stamp.dump.part" "$backup_dir/db-$stamp.dump"
+
+# 2. Uploads: a throwaway container mounts the volume read-only and archives it to stdout.
+docker run --rm -v "{{ app_project_name }}_uploads_data:/data:ro" "{{ backup_helper_image }}" \
+  tar czf - -C /data . \
+  > "$backup_dir/uploads-$stamp.tar.gz.part"
+mv "$backup_dir/uploads-$stamp.tar.gz.part" "$backup_dir/uploads-$stamp.tar.gz"
+
+# 3. Retention: only reached if both backups worked (set -e).
+find "$backup_dir" -type f \( -name 'db-*.dump' -o -name 'uploads-*.tar.gz' \) \
+  -mtime +{{ backup_keep_days }} -delete
+
+echo "backup ok: $stamp"
